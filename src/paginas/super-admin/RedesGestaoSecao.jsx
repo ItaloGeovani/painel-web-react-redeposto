@@ -230,18 +230,30 @@ export default function RedesGestaoSecao() {
             <tbody>
               {redes.map((rede) => (
                 <tr key={rede.id}>
-                  <td>
-                    <strong>{rede.nome_fantasia}</strong>
+                  <td className="tabela-celula--stack">
+                    <span className="tabela-celula__principal">{rede.nome_fantasia}</span>
                     <div className="tabela-redes__sub">{rede.razao_social}</div>
                   </td>
-                  <td>{rede.cnpj}</td>
-                  <td>
-                    <div>{rede.email_contato || "-"}</div>
+                  <td className="tabela-num">{rede.cnpj}</td>
+                  <td className="tabela-celula--stack">
+                    <span className="tabela-celula__principal">{rede.email_contato || "-"}</span>
                     <div className="tabela-redes__sub">{rede.telefone || "-"}</div>
                   </td>
-                  <td>R$ {Number(rede.valor_implantacao || 0).toFixed(2)}</td>
-                  <td>R$ {Number(rede.valor_mensalidade || 0).toFixed(2)}</td>
-                  <td>{rede.primeiro_cobranca ? String(rede.primeiro_cobranca).slice(0, 10) : "-"}</td>
+                  <td className="tabela-num">
+                    {Number(rede.valor_implantacao || 0).toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL"
+                    })}
+                  </td>
+                  <td className="tabela-num">
+                    {Number(rede.valor_mensalidade || 0).toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL"
+                    })}
+                  </td>
+                  <td className="tabela-num">
+                    {rede.primeiro_cobranca ? String(rede.primeiro_cobranca).slice(0, 10) : "-"}
+                  </td>
                   <td>
                     <span className={`tag-status ${rede.ativa ? "tag-status--ativo" : "tag-status--inativo"}`}>
                       {rede.ativa ? "Ativa" : "Inativa"}
@@ -249,10 +261,18 @@ export default function RedesGestaoSecao() {
                   </td>
                   <td>
                     <div className="tabela-redes__acoes">
-                      <button className="botao-secundario" type="button" onClick={() => preencherEdicao(rede)}>
+                      <button
+                        type="button"
+                        className="tabela-btn tabela-btn--acento"
+                        onClick={() => preencherEdicao(rede)}
+                      >
                         Editar
                       </button>
-                      <button className="botao-secundario" type="button" onClick={() => alternarStatus(rede)}>
+                      <button
+                        type="button"
+                        className={`tabela-btn ${rede.ativa ? "tabela-btn--perigo" : "tabela-btn--outline"}`}
+                        onClick={() => alternarStatus(rede)}
+                      >
                         {rede.ativa ? "Desativar" : "Ativar"}
                       </button>
                     </div>
@@ -261,7 +281,9 @@ export default function RedesGestaoSecao() {
               ))}
             </tbody>
           </table>
-          {redes.length === 0 ? <p>Nenhuma rede cadastrada.</p> : null}
+          {redes.length === 0 ? (
+            <p className="tabela-mensagem-vazia">Nenhuma rede cadastrada.</p>
+          ) : null}
         </div>
       )}
     </div>

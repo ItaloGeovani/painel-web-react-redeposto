@@ -288,29 +288,37 @@ export default function GestoresRedeGestaoSecao() {
           <tbody>
             {gestores.map((gestor) => (
               <tr key={gestor.id}>
-                <td>{gestor.nome}</td>
+                <td>
+                  <span className="tabela-celula__principal">{gestor.nome}</span>
+                </td>
                 <td>{redes.find((r) => r.id === gestor.id_rede)?.nome_fantasia || gestor.id_rede}</td>
                 <td>{gestor.email || "-"}</td>
                 <td>{gestor.telefone || "-"}</td>
-                <td>{gestor.ativo ? "Ativo" : "Inativo"}</td>
                 <td>
-                  <button
-                    type="button"
-                    className="botao-secundario botao-secundario--compacto"
-                    onClick={() => abrirEdicao(gestor)}
-                  >
-                    Editar
-                  </button>
+                  <span className={`tag-status ${gestor.ativo ? "tag-status--ativo" : "tag-status--inativo"}`}>
+                    {gestor.ativo ? "Ativo" : "Inativo"}
+                  </span>
+                </td>
+                <td>
+                  <div className="tabela-redes__acoes">
+                    <button
+                      type="button"
+                      className="tabela-btn tabela-btn--acento"
+                      onClick={() => abrirEdicao(gestor)}
+                    >
+                      Editar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
             {!carregandoGestores && gestores.length === 0 ? (
-              <tr>
+              <tr className="tabela-linha--placeholder">
                 <td colSpan={6}>Nenhum gestor cadastrado.</td>
               </tr>
             ) : null}
             {carregandoGestores ? (
-              <tr>
+              <tr className="tabela-linha--placeholder">
                 <td colSpan={6}>Carregando gestores...</td>
               </tr>
             ) : null}

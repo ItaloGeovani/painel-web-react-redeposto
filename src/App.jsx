@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { PAPEL_SUPER_ADMIN } from "./constantes/papeis";
+import {
+  PAPEL_FRENTISTA,
+  PAPEL_GERENTE_POSTO,
+  PAPEL_GESTOR_REDE,
+  PAPEL_SUPER_ADMIN
+} from "./constantes/papeis";
+import { MENUS_FRENTISTA, MENUS_GERENTE_POSTO, MENUS_GESTOR_REDE } from "./constantes/menusPorPapel";
 import LoginPagina from "./paginas/login/LoginPagina";
 import PapelNaoSuportadoPagina from "./paginas/nao-suportado/PapelNaoSuportadoPagina";
+import DashboardPorMenusPagina from "./paginas/painel-comum/DashboardPorMenusPagina";
 import DashboardSuperAdminPagina from "./paginas/super-admin/DashboardSuperAdminPagina";
 import { carregarSessao, limparSessao, salvarSessao } from "./servicos/sessaoServico";
 import { EVENTO_TOAST } from "./servicos/toastServico";
@@ -69,25 +76,38 @@ export default function App() {
       );
     }
 
-    if (sessao.usuario?.papel === PAPEL_SUPER_ADMIN) {
+    const papel = sessao.usuario?.papel;
+    const onSairPainel = () => {
+      limparSessao();
+      setSessao(null);
+    };
+
+    if (papel === PAPEL_SUPER_ADMIN) {
+      return <DashboardSuperAdminPagina sessao={sessao} onSair={onSairPainel} />;
+    }
+
+    if (papel === PAPEL_GESTOR_REDE) {
       return (
-        <DashboardSuperAdminPagina
-          sessao={sessao}
-          onSair={() => {
-            limparSessao();
-            setSessao(null);
-          }}
-        />
+        <DashboardPorMenusPagina menus={MENUS_GESTOR_REDE} sessao={sessao} onSair={onSairPainel} />
+      );
+    }
+
+    if (papel === PAPEL_GERENTE_POSTO) {
+      return (
+        <DashboardPorMenusPagina menus={MENUS_GERENTE_POSTO} sessao={sessao} onSair={onSairPainel} />
+      );
+    }
+
+    if (papel === PAPEL_FRENTISTA) {
+      return (
+        <DashboardPorMenusPagina menus={MENUS_FRENTISTA} sessao={sessao} onSair={onSairPainel} />
       );
     }
 
     return (
       <PapelNaoSuportadoPagina
         sessao={sessao}
-        onSair={() => {
-          limparSessao();
-          setSessao(null);
-        }}
+        onSair={onSairPainel}
       />
     );
   }, [sessao]);

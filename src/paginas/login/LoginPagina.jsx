@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import BotaoPrimario from "../../componentes/BotaoPrimario";
 import CampoTexto from "../../componentes/CampoTexto";
-import { loginAdministrador } from "../../servicos/autenticacaoServico";
+import { loginPainel } from "../../servicos/autenticacaoServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 
 const LEMBRAR_KEY = "gaspass_lembrar_email";
@@ -79,7 +79,7 @@ export default function LoginPagina({ onLoginSucesso }) {
     setCarregando(true);
 
     try {
-      const dados = await loginAdministrador(email, senha);
+      const dados = await loginPainel(email, senha);
       const tokenRetornado = dados?.token || "";
       if (tokenRetornado) {
         localStorage.setItem("gaspass_token", tokenRetornado);

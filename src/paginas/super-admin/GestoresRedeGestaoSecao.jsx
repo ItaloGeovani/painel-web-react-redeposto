@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { listarRedes } from "../../servicos/redesServico";
 import { criarGestorRede, editarGestorRede, listarGestoresRede } from "../../servicos/gestoresServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
@@ -14,21 +14,40 @@ const estadoInicial = {
   ativo: true
 };
 
-export default function GestoresRedeGestaoSecao() {
+/* idRedeFixo + redeContexto: modo embutido na tela de detalhes da rede (sem escolher rede no formulario). */
+export default function GestoresRedeGestaoSecao({ idRedeFixo = null, redeContexto = null }) {
+  const modoRedeUnica = Boolean(idRedeFixo);
   const [redes, setRedes] = useState([]);
   const [gestores, setGestores] = useState([]);
-  const [carregandoRedes, setCarregandoRedes] = useState(true);
+  const [carregandoRedes, setCarregandoRedes] = useState(!modoRedeUnica);
   const [carregandoGestores, setCarregandoGestores] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState(estadoInicial);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [gestorExpandidoId, setGestorExpandidoId] = useState(null);
 
-  const redeSelecionada = useMemo(
-    () => redes.find((rede) => rede.id === form.id_rede) || null,
-    [redes, form.id_rede]
-  );
+  const redeSelecionada = useMemo(() => {
+    if (modoRedeUnica && redeContexto) {
+      return redes.find((rede) => rede.id === idRedeFixo) || {
+        nome_fantasia: redeContexto.nome_fantasia,
+        cnpj: redeContexto.cnpj
+      };
+    }
+    return redes.find((rede) => rede.id === form.id_rede) || null;
+  }, [redes, form.id_rede, modoRedeUnica, redeContexto, idRedeFixo]);
+
+  const gestoresVisiveis = useMemo(() => {
+    if (!modoRedeUnica) {
+      return gestores;
+    }
+    return gestores.filter((g) => g.id_rede === idRedeFixo);
+  }, [gestores, modoRedeUnica, idRedeFixo]);
 
   useEffect(() => {
+    if (modoRedeUnica) {
+      setCarregandoRedes(false);
+      return;
+    }
     async function carregarRedes() {
       setCarregandoRedes(true);
       try {
@@ -42,7 +61,7 @@ export default function GestoresRedeGestaoSecao() {
     }
 
     carregarRedes();
-  }, []);
+  }, [modoRedeUnica]);
 
   useEffect(() => {
     async function carregarGestores() {
@@ -99,7 +118,7 @@ export default function GestoresRedeGestaoSecao() {
       }
 
       const resposta = await criarGestorRede({
-        id_rede: form.id_rede,
+        id_rede: modoRedeUnica ? idRedeFixo : form.id_rede,
         nome: form.nome,
         email: form.email,
         senha: form.senha,
@@ -124,7 +143,7 @@ export default function GestoresRedeGestaoSecao() {
       setForm(estadoInicial);
       return;
     }
-    setForm(estadoInicial);
+    setForm(modoRedeUnica ? { ...estadoInicial, id_rede: idRedeFixo } : estadoInicial);
     setMostrarFormulario(true);
   }
 
@@ -143,9 +162,13 @@ export default function GestoresRedeGestaoSecao() {
   }
 
   return (
-    <div className="secao-gestores">
+    <div className={modoRedeUnica ? "secao-gestores secao-gestores--embutida" : "secao-gestores"}>
       <div className="secao-redes__topo">
-        <p>Cadastre o usuario gestor da rede para acesso ao sistema administrativo.</p>
+        {modoRedeUnica ? (
+          <p>Conta com acesso ao painel administrativo desta rede.</p>
+        ) : (
+          <p>Cadastre o usuario gestor da rede para acesso ao sistema administrativo.</p>
+        )}
         <button type="button" className="botao-primario" onClick={abrirCriacao}>
           {mostrarFormulario && !form.id ? "Fechar formulario" : "Adicionar Gestor"}
         </button>
@@ -158,7 +181,14 @@ export default function GestoresRedeGestaoSecao() {
             {form.id ? (
               <div className="campo__input campo__input--estatico">
                 Rede:{" "}
-                {redes.find((r) => r.id === form.id_rede)?.nome_fantasia || form.id_rede || "—"}
+                {redes.find((r) => r.id === form.id_rede)?.nome_fantasia ||
+                  redeContexto?.nome_fantasia ||
+                  form.id_rede ||
+                  "—"}
+              </div>
+            ) : modoRedeUnica ? (
+              <div className="campo__input campo__input--estatico">
+                Rede: {redeContexto?.nome_fantasia || "—"}
               </div>
             ) : (
               <select
@@ -249,7 +279,7 @@ export default function GestoresRedeGestaoSecao() {
             <button
               className="botao-primario"
               type="submit"
-              disabled={salvando || (!form.id && carregandoRedes)}
+              disabled={salvando || (!form.id && carregandoRedes && !modoRedeUnica)}
             >
               {salvando ? "Salvando..." : form.id ? "Salvar alteracoes" : "Criar Gestor"}
             </button>
@@ -267,59 +297,101 @@ export default function GestoresRedeGestaoSecao() {
         </form>
       ) : null}
 
-      {mostrarFormulario && !form.id && redeSelecionada ? (
+      {mostrarFormulario && !form.id && redeSelecionada && !modoRedeUnica ? (
         <div className="card-referencia">
           <strong>Rede selecionada:</strong> {redeSelecionada.nome_fantasia} | CNPJ {redeSelecionada.cnpj}
         </div>
       ) : null}
 
       <div className="tabela-wrap">
-        <table className="tabela-redes">
+        <table className="tabela-redes tabela-redes--compacta">
           <thead>
             <tr>
+              <th className="tabela-redes__th-expand" scope="col" aria-label="Detalhes" />
               <th>Gestor</th>
-              <th>Rede</th>
-              <th>Email</th>
-              <th>Telefone</th>
+              {modoRedeUnica ? null : <th>Rede</th>}
               <th>Status</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {gestores.map((gestor) => (
-              <tr key={gestor.id}>
-                <td>
-                  <span className="tabela-celula__principal">{gestor.nome}</span>
-                </td>
-                <td>{redes.find((r) => r.id === gestor.id_rede)?.nome_fantasia || gestor.id_rede}</td>
-                <td>{gestor.email || "-"}</td>
-                <td>{gestor.telefone || "-"}</td>
-                <td>
-                  <span className={`tag-status ${gestor.ativo ? "tag-status--ativo" : "tag-status--inativo"}`}>
-                    {gestor.ativo ? "Ativo" : "Inativo"}
-                  </span>
-                </td>
-                <td>
-                  <div className="tabela-redes__acoes">
-                    <button
-                      type="button"
-                      className="tabela-btn tabela-btn--acento"
-                      onClick={() => abrirEdicao(gestor)}
-                    >
-                      Editar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {!carregandoGestores && gestores.length === 0 ? (
+            {gestoresVisiveis.map((gestor) => {
+              const aberta = gestorExpandidoId === gestor.id;
+              const nomeRede =
+                redes.find((r) => r.id === gestor.id_rede)?.nome_fantasia || gestor.id_rede;
+              const colSpanDetalhe = modoRedeUnica ? 4 : 5;
+              return (
+                <Fragment key={gestor.id}>
+                  <tr className={aberta ? "tabela-redes__linha--aberta" : undefined}>
+                    <td className="tabela-redes__col-expand">
+                      <button
+                        type="button"
+                        className="tabela-redes__expand"
+                        aria-expanded={aberta}
+                        aria-label={aberta ? "Ocultar contato do gestor" : "Ver email e telefone do gestor"}
+                        onClick={() =>
+                          setGestorExpandidoId((id) => (id === gestor.id ? null : gestor.id))
+                        }
+                      >
+                        <span className="tabela-redes__expand-ico" aria-hidden>
+                          {aberta ? "▼" : "▶"}
+                        </span>
+                      </button>
+                    </td>
+                    <td>
+                      <span className="tabela-celula__principal">{gestor.nome}</span>
+                    </td>
+                    {modoRedeUnica ? null : <td>{nomeRede}</td>}
+                    <td>
+                      <span
+                        className={`tag-status ${gestor.ativo ? "tag-status--ativo" : "tag-status--inativo"}`}
+                      >
+                        {gestor.ativo ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="tabela-redes__acoes">
+                        <button
+                          type="button"
+                          className="tabela-btn tabela-btn--acento"
+                          onClick={() => abrirEdicao(gestor)}
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {aberta ? (
+                    <tr className="tabela-redes__linha-detalhe">
+                      <td colSpan={colSpanDetalhe}>
+                        <div
+                          className="tabela-redes__detalhe-grid"
+                          role="region"
+                          aria-label="Contato do gestor"
+                        >
+                          <div className="tabela-redes__detalhe-item">
+                            <span className="tabela-redes__detalhe-label">Email</span>
+                            <span className="tabela-redes__detalhe-valor">{gestor.email || "—"}</span>
+                          </div>
+                          <div className="tabela-redes__detalhe-item">
+                            <span className="tabela-redes__detalhe-label">Telefone</span>
+                            <span className="tabela-redes__detalhe-valor">{gestor.telefone || "—"}</span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+            {!carregandoGestores && gestoresVisiveis.length === 0 ? (
               <tr className="tabela-linha--placeholder">
-                <td colSpan={6}>Nenhum gestor cadastrado.</td>
+                <td colSpan={modoRedeUnica ? 4 : 5}>Nenhum gestor cadastrado.</td>
               </tr>
             ) : null}
             {carregandoGestores ? (
               <tr className="tabela-linha--placeholder">
-                <td colSpan={6}>Carregando gestores...</td>
+                <td colSpan={modoRedeUnica ? 4 : 5}>Carregando gestores...</td>
               </tr>
             ) : null}
           </tbody>

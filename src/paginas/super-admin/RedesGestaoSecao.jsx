@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   ativarRede,
   criarRede,
@@ -7,6 +7,7 @@ import {
   listarRedes
 } from "../../servicos/redesServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import RedeDetalhesSecao from "./RedeDetalhesSecao";
 
 const estadoInicial = {
   id: "",
@@ -27,8 +28,15 @@ export default function RedesGestaoSecao() {
   const [form, setForm] = useState(estadoInicial);
   const [modoEdicao, setModoEdicao] = useState(false);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [redeExpandidaId, setRedeExpandidaId] = useState(null);
+  const [redeDetalheId, setRedeDetalheId] = useState(null);
 
   const totalAtivas = useMemo(() => redes.filter((r) => r.ativa).length, [redes]);
+
+  const redeEmDetalhe = useMemo(
+    () => (redeDetalheId ? redes.find((r) => r.id === redeDetalheId) : null),
+    [redes, redeDetalheId]
+  );
 
   async function carregar() {
     setCarregando(true);
@@ -45,6 +53,16 @@ export default function RedesGestaoSecao() {
   useEffect(() => {
     carregar();
   }, []);
+
+  useEffect(() => {
+    if (!redeDetalheId || carregando) {
+      return;
+    }
+    const existe = redes.some((r) => r.id === redeDetalheId);
+    if (!existe) {
+      setRedeDetalheId(null);
+    }
+  }, [redeDetalheId, redes, carregando]);
 
   function limparFormulario() {
     setForm(estadoInicial);
@@ -123,14 +141,36 @@ export default function RedesGestaoSecao() {
     }
   }
 
+  function abrirEdicaoDesdeDetalhe(redeAlvo) {
+    setRedeDetalheId(null);
+    preencherEdicao(redeAlvo);
+  }
+
+  if (redeDetalheId && redeEmDetalhe) {
+    return (
+      <RedeDetalhesSecao
+        rede={redeEmDetalhe}
+        onVoltar={() => setRedeDetalheId(null)}
+        onEditarRede={abrirEdicaoDesdeDetalhe}
+      />
+    );
+  }
+
   return (
     <div className="secao-redes">
       <div className="secao-redes__topo">
-        <p>Total: {redes.length} | Ativas: {totalAtivas}</p>
+        <div className="secao-redes__intro">
+          <p>Total: {redes.length} | Ativas: {totalAtivas}</p>
+          <p className="secao-redes__fluxo">
+            Esta e a lista de todas as redes. Use <strong>Gerenciar</strong> para abrir o painel com abas (visao
+            geral, gestor, clientes, postos com equipe por unidade, e outras areas).
+          </p>
+        </div>
         <button
           type="button"
           className="botao-primario"
           onClick={() => {
+            setRedeDetalheId(null);
             setModoEdicao(false);
             setForm(estadoInicial);
             setMostrarFormulario((v) => !v);
@@ -214,71 +254,126 @@ export default function RedesGestaoSecao() {
         <p className="secao-redes__carregando">Carregando redes...</p>
       ) : (
         <div className="tabela-wrap">
-          <table className="tabela-redes">
+          <table className="tabela-redes tabela-redes--compacta">
             <thead>
               <tr>
+                <th className="tabela-redes__th-expand" scope="col" aria-label="Detalhes" />
                 <th>Rede</th>
-                <th>CNPJ</th>
-                <th>Contato</th>
-                <th>Implantacao</th>
-                <th>Mensalidade</th>
-                <th>Primeira cobranca</th>
                 <th>Status</th>
                 <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
-              {redes.map((rede) => (
-                <tr key={rede.id}>
-                  <td className="tabela-celula--stack">
-                    <span className="tabela-celula__principal">{rede.nome_fantasia}</span>
-                    <div className="tabela-redes__sub">{rede.razao_social}</div>
-                  </td>
-                  <td className="tabela-num">{rede.cnpj}</td>
-                  <td className="tabela-celula--stack">
-                    <span className="tabela-celula__principal">{rede.email_contato || "-"}</span>
-                    <div className="tabela-redes__sub">{rede.telefone || "-"}</div>
-                  </td>
-                  <td className="tabela-num">
-                    {Number(rede.valor_implantacao || 0).toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL"
-                    })}
-                  </td>
-                  <td className="tabela-num">
-                    {Number(rede.valor_mensalidade || 0).toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL"
-                    })}
-                  </td>
-                  <td className="tabela-num">
-                    {rede.primeiro_cobranca ? String(rede.primeiro_cobranca).slice(0, 10) : "-"}
-                  </td>
-                  <td>
-                    <span className={`tag-status ${rede.ativa ? "tag-status--ativo" : "tag-status--inativo"}`}>
-                      {rede.ativa ? "Ativa" : "Inativa"}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="tabela-redes__acoes">
-                      <button
-                        type="button"
-                        className="tabela-btn tabela-btn--acento"
-                        onClick={() => preencherEdicao(rede)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className={`tabela-btn ${rede.ativa ? "tabela-btn--perigo" : "tabela-btn--outline"}`}
-                        onClick={() => alternarStatus(rede)}
-                      >
-                        {rede.ativa ? "Desativar" : "Ativar"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {redes.map((rede) => {
+                const aberta = redeExpandidaId === rede.id;
+                return (
+                  <Fragment key={rede.id}>
+                    <tr className={aberta ? "tabela-redes__linha--aberta" : undefined}>
+                      <td className="tabela-redes__col-expand">
+                        <button
+                          type="button"
+                          className="tabela-redes__expand"
+                          aria-expanded={aberta}
+                          aria-label={aberta ? "Ocultar dados comerciais e contato" : "Ver dados comerciais e contato"}
+                          onClick={() =>
+                            setRedeExpandidaId((id) => (id === rede.id ? null : rede.id))
+                          }
+                        >
+                          <span className="tabela-redes__expand-ico" aria-hidden>
+                            {aberta ? "▼" : "▶"}
+                          </span>
+                        </button>
+                      </td>
+                      <td className="tabela-celula--stack">
+                        <span className="tabela-celula__principal">{rede.nome_fantasia}</span>
+                        <div className="tabela-redes__sub">{rede.razao_social}</div>
+                      </td>
+                      <td>
+                        <span
+                          className={`tag-status ${rede.ativa ? "tag-status--ativo" : "tag-status--inativo"}`}
+                        >
+                          {rede.ativa ? "Ativa" : "Inativa"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="tabela-redes__acoes">
+                          <button
+                            type="button"
+                            className="tabela-btn tabela-btn--outline"
+                            onClick={() => setRedeDetalheId(rede.id)}
+                          >
+                            Gerenciar
+                          </button>
+                          <button
+                            type="button"
+                            className="tabela-btn tabela-btn--acento"
+                            onClick={() => preencherEdicao(rede)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className={`tabela-btn ${rede.ativa ? "tabela-btn--perigo" : "tabela-btn--outline"}`}
+                            onClick={() => alternarStatus(rede)}
+                          >
+                            {rede.ativa ? "Desativar" : "Ativar"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {aberta ? (
+                      <tr className="tabela-redes__linha-detalhe">
+                        <td colSpan={4}>
+                          <div
+                            className="tabela-redes__detalhe-grid"
+                            role="region"
+                            aria-label="Dados comerciais e contato"
+                          >
+                            <div className="tabela-redes__detalhe-item">
+                              <span className="tabela-redes__detalhe-label">CNPJ</span>
+                              <span className="tabela-redes__detalhe-valor tabela-num">{rede.cnpj || "—"}</span>
+                            </div>
+                            <div className="tabela-redes__detalhe-item">
+                              <span className="tabela-redes__detalhe-label">Email</span>
+                              <span className="tabela-redes__detalhe-valor">{rede.email_contato || "—"}</span>
+                            </div>
+                            <div className="tabela-redes__detalhe-item">
+                              <span className="tabela-redes__detalhe-label">Telefone</span>
+                              <span className="tabela-redes__detalhe-valor">{rede.telefone || "—"}</span>
+                            </div>
+                            <div className="tabela-redes__detalhe-item">
+                              <span className="tabela-redes__detalhe-label">Implantacao</span>
+                              <span className="tabela-redes__detalhe-valor tabela-num">
+                                {Number(rede.valor_implantacao || 0).toLocaleString("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL"
+                                })}
+                              </span>
+                            </div>
+                            <div className="tabela-redes__detalhe-item">
+                              <span className="tabela-redes__detalhe-label">Mensalidade</span>
+                              <span className="tabela-redes__detalhe-valor tabela-num">
+                                {Number(rede.valor_mensalidade || 0).toLocaleString("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL"
+                                })}
+                              </span>
+                            </div>
+                            <div className="tabela-redes__detalhe-item">
+                              <span className="tabela-redes__detalhe-label">Primeira cobranca</span>
+                              <span className="tabela-redes__detalhe-valor tabela-num">
+                                {rede.primeiro_cobranca
+                                  ? String(rede.primeiro_cobranca).slice(0, 10)
+                                  : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
           {redes.length === 0 ? (

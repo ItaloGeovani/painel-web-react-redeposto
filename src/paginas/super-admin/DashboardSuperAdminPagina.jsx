@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import PainelLayout from "../../componentes/layout/PainelLayout";
 import { obterResumoDashboardAdmin } from "../../servicos/dashboardServico";
 import { toastErro } from "../../servicos/toastServico";
-import GestoresRedeGestaoSecao from "./GestoresRedeGestaoSecao";
 import RedesGestaoSecao from "./RedesGestaoSecao";
 
 const MENUS_SUPER_ADMIN = [
   { id: "visao-geral", nome: "Visao Geral", titulo: "Dashboard do Administrador Global", subtitulo: "Visao consolidada da plataforma para decisoes rapidas." },
-  { id: "redes", nome: "Redes", titulo: "Gestao de Redes", subtitulo: "Crie, edite, ative e desative redes da plataforma." },
-  { id: "gestores-rede", nome: "Gestores de Rede", titulo: "Gestao de Gestores", subtitulo: "Crie o usuario gestor para acesso e administracao da rede." },
-  { id: "usuarios-perfis", nome: "Usuarios e Perfis", titulo: "Usuarios e Perfis", subtitulo: "Controle de acessos, papeis e status de usuarios da plataforma." },
+  {
+    id: "redes",
+    nome: "Redes",
+    titulo: "Gestao de Redes",
+    subtitulo:
+      "Use Gerenciar para o painel da rede: postos, equipe por posto, gestor, clientes e demais abas."
+  },
   { id: "postos", nome: "Postos", titulo: "Postos e Unidades", subtitulo: "Cadastro e manutencao de postos vinculados as redes." },
   { id: "campanhas", nome: "Campanhas", titulo: "Campanhas e Promocoes", subtitulo: "Gestao de regras promocionais, vigencias e desempenho." },
   { id: "carteira", nome: "Carteira e Financeiro", titulo: "Carteira e Financeiro", subtitulo: "Acompanhamento de saldos, movimentacoes e conciliacao." },
@@ -59,9 +62,6 @@ export default function DashboardSuperAdminPagina({ sessao, onSair }) {
   const conteudoSecao = useMemo(() => {
     if (menuAtivo === "Redes") {
       return <RedesGestaoSecao />;
-    }
-    if (menuAtivo === "Gestores de Rede") {
-      return <GestoresRedeGestaoSecao />;
     }
     if (menuAtivo === "Visao Geral") {
       const valorMensal = Number(resumo?.receita_mensal_prevista || 0);

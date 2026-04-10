@@ -8,6 +8,7 @@ import AbaCarteiraRede from "../super-admin/AbaCarteiraRede";
 import AbaPremiosRede from "../super-admin/AbaPremiosRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
 import { AbaCampanhas, ListaUsuariosRedePaginada, SecaoEquipePosto } from "../super-admin/RedeDetalhesSecao";
+import AppCardsRedeSecao from "../gestor-rede/AppCardsRedeSecao";
 import GestorRedeAuditoriaSecao from "../gestor-rede/GestorRedeAuditoriaSecao";
 import GestorRedeRelatoriosSecao from "../gestor-rede/GestorRedeRelatoriosSecao";
 
@@ -138,6 +139,8 @@ export default function DashboardGerentePostoPagina({ sessao, onSair }) {
         return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} somenteLeituraMoeda />;
       case "vouchers":
         return <AbaVouchersRede rede={rede} />;
+      case "app-cards":
+        return <AppCardsRedeSecao redeId={rede.id} />;
       case "premios":
         return <AbaPremiosRede redeId={rede.id} />;
       case "relatorios":

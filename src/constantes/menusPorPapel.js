@@ -35,6 +35,12 @@ export const MENUS_GESTOR_REDE = [
     subtitulo: "Emissao, uso e acompanhamento de vouchers."
   },
   {
+    id: "app-cards",
+    nome: "Cards do app",
+    titulo: "Cards do app",
+    subtitulo: "Destaque da rede e tres promocoes no aplicativo do cliente (imagens e links)."
+  },
+  {
     id: "premios",
     nome: "Premios",
     titulo: "Premios",
@@ -79,6 +85,12 @@ export const MENUS_GERENTE_POSTO = [
     nome: "Vouchers",
     titulo: "Vouchers",
     subtitulo: "Emissao, uso e acompanhamento de vouchers."
+  },
+  {
+    id: "app-cards",
+    nome: "Cards do app",
+    titulo: "Cards do app",
+    subtitulo: "Destaque da rede e tres promocoes no aplicativo do cliente (imagens e links)."
   },
   {
     id: "premios",

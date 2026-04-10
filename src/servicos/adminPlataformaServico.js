@@ -66,3 +66,16 @@ export async function obterConfiguracaoSistema() {
   const dados = await requestAutenticada("/v1/admin/sistema/configuracao", { method: "GET" });
   return dados?.configuracao || null;
 }
+
+export async function obterConfigAppMobile() {
+  const dados = await requestAutenticada("/v1/admin/app-mobile/versao", { method: "GET" });
+  return dados?.configuracao || null;
+}
+
+export async function salvarConfigAppMobile(payload) {
+  const dados = await requestAutenticada("/v1/admin/app-mobile/versao", {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+  return dados?.configuracao || null;
+}

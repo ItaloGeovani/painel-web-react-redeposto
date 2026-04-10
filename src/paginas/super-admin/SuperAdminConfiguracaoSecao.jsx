@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { obterConfiguracaoSistema } from "../../servicos/adminPlataformaServico";
 import { toastErro } from "../../servicos/toastServico";
+import SuperAdminAppMobileConfigForm from "./SuperAdminAppMobileConfigForm";
 
 export default function SuperAdminConfiguracaoSecao() {
   const [cfg, setCfg] = useState(null);
@@ -79,6 +80,8 @@ export default function SuperAdminConfiguracaoSecao() {
           </p>
         </article>
       </div>
+
+      <SuperAdminAppMobileConfigForm />
     </div>
   );
 }

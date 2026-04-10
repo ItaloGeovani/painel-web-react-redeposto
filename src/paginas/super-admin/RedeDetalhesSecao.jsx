@@ -1,10 +1,14 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { datetimeLocalParaIso, isoParaDatetimeLocal } from "../../util/dataHoraLocal";
 import { criarCampanhaRede, editarCampanhaRede, listarCampanhasRede } from "../../servicos/campanhasServico";
 import { criarPostoRede, listarPostosRede } from "../../servicos/postosServico";
-import { criarUsuarioEquipe, listarUsuariosRede } from "../../servicos/usuariosRedeServico";
+import { criarUsuarioEquipe, editarUsuarioEquipe, listarUsuariosRede } from "../../servicos/usuariosRedeServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import GestoresRedeGestaoSecao from "./GestoresRedeGestaoSecao";
 import CampanhaDescricaoEditor from "../../componentes/CampanhaDescricaoEditor";
+import AbaCarteiraRede from "./AbaCarteiraRede";
+import AbaVouchersRede from "./AbaVouchersRede";
+import AbaPremiosRede from "./AbaPremiosRede";
 
 const TAMANHO_PAGINA = 10;
 
@@ -15,6 +19,7 @@ const ABAS_REDE = [
   { id: "postos", label: "Postos" },
   { id: "campanhas", label: "Campanhas" },
   { id: "carteira", label: "Carteira" },
+  { id: "premios", label: "Premios" },
   { id: "vouchers", label: "Vouchers" }
 ];
 
@@ -76,29 +81,6 @@ function formatarCepExibicao(cep) {
     return cep || "";
   }
   return `${d.slice(0, 5)}-${d.slice(5)}`;
-}
-
-function isoParaDatetimeLocal(iso) {
-  if (!iso) {
-    return "";
-  }
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) {
-    return "";
-  }
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function datetimeLocalParaIso(s) {
-  if (!s) {
-    return "";
-  }
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) {
-    return "";
-  }
-  return d.toISOString();
 }
 
 function rotuloStatusCampanha(st) {
@@ -175,11 +157,25 @@ function rotuloPapel(p) {
   }
 }
 
-function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey = 0 }) {
+export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey = 0, permiteEditarEquipe = false }) {
   const [pagina, setPagina] = useState(1);
   const [total, setTotal] = useState(0);
   const [itens, setItens] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [reloadTick, setReloadTick] = useState(0);
+  const [editandoId, setEditandoId] = useState(null);
+  const [postosEdicao, setPostosEdicao] = useState([]);
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [formEdicao, setFormEdicao] = useState({
+    nome: "",
+    email: "",
+    telefone: "",
+    papel: "frentista",
+    id_posto: "",
+    ativo: true,
+    senha: "",
+    confirmar_senha: ""
+  });
 
   useEffect(() => {
     setPagina(1);
@@ -220,12 +216,68 @@ function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey = 0 }) 
     return () => {
       cancelado = true;
     };
-  }, [redeId, papeis, idPosto, pagina, refreshKey]);
+  }, [redeId, papeis, idPosto, pagina, refreshKey, reloadTick]);
 
   const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO_PAGINA));
   const offsetAtual = (pagina - 1) * TAMANHO_PAGINA;
   const inicioExibido = total === 0 ? 0 : offsetAtual + 1;
   const fimExibido = offsetAtual + itens.length;
+  const colunas = permiteEditarEquipe ? 5 : 4;
+
+  async function abrirEdicao(u) {
+    setEditandoId(u.id);
+    setFormEdicao({
+      nome: u.nome || "",
+      email: u.email || "",
+      telefone: u.telefone || "",
+      papel: u.papel || "frentista",
+      id_posto: u.id_posto || "",
+      ativo: Boolean(u.ativo),
+      senha: "",
+      confirmar_senha: ""
+    });
+    try {
+      const lista = await listarPostosRede(redeId);
+      setPostosEdicao(lista || []);
+    } catch {
+      setPostosEdicao([]);
+      toastErro("Falha ao carregar postos para vinculo.");
+    }
+  }
+
+  async function onSubmitEdicao(event) {
+    event.preventDefault();
+    if (!editandoId) {
+      return;
+    }
+    setSalvandoEdicao(true);
+    try {
+      const payload = {
+        id: editandoId,
+        id_rede: redeId,
+        id_posto: formEdicao.id_posto,
+        papel: formEdicao.papel,
+        nome: formEdicao.nome,
+        email: formEdicao.email,
+        telefone: formEdicao.telefone,
+        ativo: formEdicao.ativo
+      };
+      const senha = formEdicao.senha.trim();
+      const confirmar = formEdicao.confirmar_senha.trim();
+      if (senha || confirmar) {
+        payload.senha = senha;
+        payload.confirmar_senha = confirmar;
+      }
+      await editarUsuarioEquipe(payload);
+      toastSucesso("Usuario da equipe atualizado com sucesso.");
+      setEditandoId(null);
+      setReloadTick((t) => t + 1);
+    } catch (err) {
+      toastErro(err.message || "Falha ao atualizar usuario.");
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  }
 
   return (
     <div className="rede-detalhes__subsecao">
@@ -237,6 +289,7 @@ function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey = 0 }) 
               <th>Papel</th>
               <th>Email</th>
               <th>Status</th>
+              {permiteEditarEquipe ? <th>Acoes</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -252,21 +305,122 @@ function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey = 0 }) 
                     {u.ativo ? "Ativo" : "Inativo"}
                   </span>
                 </td>
+                {permiteEditarEquipe ? (
+                  <td>
+                    <button
+                      type="button"
+                      className="botao-secundario botao-secundario--compacto"
+                      onClick={() => abrirEdicao(u)}
+                    >
+                      Editar
+                    </button>
+                  </td>
+                ) : null}
               </tr>
             ))}
             {!carregando && itens.length === 0 ? (
               <tr className="tabela-linha--placeholder">
-                <td colSpan={4}>Nenhum usuario nesta categoria.</td>
+                <td colSpan={colunas}>Nenhum usuario nesta categoria.</td>
               </tr>
             ) : null}
             {carregando ? (
               <tr className="tabela-linha--placeholder">
-                <td colSpan={4}>Carregando...</td>
+                <td colSpan={colunas}>Carregando...</td>
               </tr>
             ) : null}
           </tbody>
         </table>
       </div>
+
+      {permiteEditarEquipe && editandoId ? (
+        <form className="form-rede form-rede--equipe" onSubmit={onSubmitEdicao} style={{ marginTop: 16 }}>
+          <p className="rede-detalhes__ajuda" style={{ marginBottom: 8 }}>
+            <strong>Editar membro da equipe</strong> — deixe senha em branco para manter a atual.
+          </p>
+          <div className="form-rede__grid">
+            <select
+              className="campo__input"
+              value={formEdicao.papel}
+              onChange={(e) => setFormEdicao((prev) => ({ ...prev, papel: e.target.value }))}
+            >
+              <option value="frentista">Frentista</option>
+              <option value="gerente_posto">Gerente de posto</option>
+            </select>
+            <select
+              className="campo__input"
+              value={formEdicao.id_posto}
+              onChange={(e) => setFormEdicao((prev) => ({ ...prev, id_posto: e.target.value }))}
+              required
+            >
+              <option value="">Posto vinculado</option>
+              {postosEdicao.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {(p.nome_fantasia && String(p.nome_fantasia).trim()) || p.nome} ({p.codigo})
+                </option>
+              ))}
+            </select>
+            <input
+              className="campo__input"
+              placeholder="Nome completo"
+              value={formEdicao.nome}
+              onChange={(e) => setFormEdicao((prev) => ({ ...prev, nome: e.target.value }))}
+              required
+            />
+            <input
+              className="campo__input"
+              type="email"
+              placeholder="Email"
+              value={formEdicao.email}
+              onChange={(e) => setFormEdicao((prev) => ({ ...prev, email: e.target.value }))}
+              required
+            />
+            <input
+              className="campo__input"
+              placeholder="Telefone"
+              value={formEdicao.telefone}
+              onChange={(e) => setFormEdicao((prev) => ({ ...prev, telefone: e.target.value }))}
+            />
+            <label className="rede-detalhes__ajuda" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={formEdicao.ativo}
+                onChange={(e) => setFormEdicao((prev) => ({ ...prev, ativo: e.target.checked }))}
+              />
+              Usuario ativo
+            </label>
+            <input
+              className="campo__input"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Nova senha (opcional)"
+              value={formEdicao.senha}
+              onChange={(e) => setFormEdicao((prev) => ({ ...prev, senha: e.target.value }))}
+            />
+            <input
+              className="campo__input"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Confirmar nova senha"
+              value={formEdicao.confirmar_senha}
+              onChange={(e) => setFormEdicao((prev) => ({ ...prev, confirmar_senha: e.target.value }))}
+            />
+          </div>
+          <div className="form-rede__acoes">
+            <button className="botao-primario" type="submit" disabled={salvandoEdicao}>
+              {salvandoEdicao ? "Salvando..." : "Salvar alteracoes"}
+            </button>
+            <button
+              type="button"
+              className="botao-secundario"
+              onClick={() => setEditandoId(null)}
+              disabled={salvandoEdicao}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      ) : null}
+
       <div className="paginacao-rede">
         <span className="paginacao-rede__info">
           {carregando ? "Carregando..." : `Exibindo ${inicioExibido}–${fimExibido} de ${total}`}
@@ -297,7 +451,7 @@ function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey = 0 }) 
   );
 }
 
-function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar }) {
+export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultarNavegacaoVoltar = false }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -331,9 +485,11 @@ function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar }) {
   return (
     <>
       <div className="rede-detalhes__subnivel">
-        <button type="button" className="botao-secundario rede-detalhes__voltar" onClick={onVoltar}>
-          Voltar aos postos
-        </button>
+        {!ocultarNavegacaoVoltar ? (
+          <button type="button" className="botao-secundario rede-detalhes__voltar" onClick={onVoltar}>
+            Voltar aos postos
+          </button>
+        ) : null}
         <p className="rede-detalhes__subnivel-titulo">
           Equipe do posto: <strong>{nomePosto}</strong>
         </p>
@@ -424,12 +580,13 @@ function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar }) {
         papeis="gerente_posto,frentista"
         idPosto={idPosto}
         refreshKey={refreshKey}
+        permiteEditarEquipe
       />
     </>
   );
 }
 
-function AbaPostos({ redeId }) {
+export function AbaPostos({ redeId }) {
   const [postos, setPostos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [postoEquipe, setPostoEquipe] = useState(null);
@@ -710,7 +867,7 @@ function AbaPostos({ redeId }) {
   );
 }
 
-function AbaCampanhas({ redeId }) {
+export function AbaCampanhas({ redeId, somenteLeitura = false }) {
   const [campanhas, setCampanhas] = useState([]);
   const [postos, setPostos] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -722,6 +879,17 @@ function AbaCampanhas({ redeId }) {
 
   async function carregar() {
     setCarregando(true);
+    if (somenteLeitura) {
+      try {
+        const itens = await listarCampanhasRede(redeId);
+        setCampanhas(itens);
+      } catch (err) {
+        setCampanhas([]);
+        toastErro(err?.message || "Falha ao carregar campanhas.");
+      }
+      setCarregando(false);
+      return;
+    }
     const campanhasP = listarCampanhasRede(redeId).then(
       (itens) => ({ ok: true, itens }),
       (err) => ({ ok: false, err })
@@ -755,7 +923,7 @@ function AbaCampanhas({ redeId }) {
   }, [redeId]);
 
   useEffect(() => {
-    if (!mostrarForm || !redeId) {
+    if (somenteLeitura || !mostrarForm || !redeId) {
       return undefined;
     }
     let cancelado = false;
@@ -871,33 +1039,45 @@ function AbaCampanhas({ redeId }) {
     }
   }
 
+  const colSpanTabela = somenteLeitura ? 5 : 6;
+
   return (
     <>
       <p className="rede-detalhes__ajuda">
-        Escolha <strong>um</strong> canal: <strong>aplicativo</strong> ou <strong>posto fisico</strong> (nao sao
-        combinados). Escopo de posto: <strong>toda a rede</strong> ou <strong>um posto</strong>. Desconto: percentual
-        ou valor fixo sobre a compra, por litro ou por unidade; valor minimo da compra (0 = qualquer); limite de usos
-        por cliente (vazio = ilimitado ate o fim da vigencia).
+        {somenteLeitura ? (
+          <>
+            Lista de promocoes da rede para consulta. <strong>Edicao</strong> e feita pelo gestor ou gerente de posto.
+          </>
+        ) : (
+          <>
+            Escolha <strong>um</strong> canal: <strong>aplicativo</strong> ou <strong>posto fisico</strong> (nao sao
+            combinados). Escopo de posto: <strong>toda a rede</strong> ou <strong>um posto</strong>. Desconto: percentual
+            ou valor fixo sobre a compra, por litro ou por unidade; valor minimo da compra (0 = qualquer); limite de usos
+            por cliente (vazio = ilimitado ate o fim da vigencia).
+          </>
+        )}
       </p>
-      <div className="rede-detalhes__linha-titulo rede-detalhes__linha-titulo--fim">
-        <button
-          type="button"
-          className="botao-primario"
-          onClick={() => {
-            if (mostrarForm) {
-              setMostrarForm(false);
-              setEditandoId(null);
-              setFormCampanha({ ...estadoInicialCampanha });
-            } else {
-              abrirNovo();
-            }
-          }}
-        >
-          {mostrarForm ? "Fechar formulario" : "Nova campanha"}
-        </button>
-      </div>
+      {!somenteLeitura ? (
+        <div className="rede-detalhes__linha-titulo rede-detalhes__linha-titulo--fim">
+          <button
+            type="button"
+            className="botao-primario"
+            onClick={() => {
+              if (mostrarForm) {
+                setMostrarForm(false);
+                setEditandoId(null);
+                setFormCampanha({ ...estadoInicialCampanha });
+              } else {
+                abrirNovo();
+              }
+            }}
+          >
+            {mostrarForm ? "Fechar formulario" : "Nova campanha"}
+          </button>
+        </div>
+      ) : null}
 
-      {mostrarForm ? (
+      {!somenteLeitura && mostrarForm ? (
         <form className="form-rede form-rede--equipe" onSubmit={onSubmitCampanha}>
           <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form">
             Datas em horario local; a API envia em UTC (ISO8601). Sem desconto: modalidade &quot;Nenhum&quot; e valor do
@@ -1062,7 +1242,7 @@ function AbaCampanhas({ redeId }) {
               <th>Canais</th>
               <th>Vigencia</th>
               <th>Status</th>
-              <th>Acoes</th>
+              {somenteLeitura ? null : <th>Acoes</th>}
             </tr>
           </thead>
           <tbody>
@@ -1108,15 +1288,17 @@ function AbaCampanhas({ redeId }) {
                         {rotuloStatusCampanha(c.status)}
                       </span>
                     </td>
-                    <td>
-                      <button type="button" className="tabela-btn" onClick={() => abrirEditar(c)}>
-                        Editar
-                      </button>
-                    </td>
+                    {somenteLeitura ? null : (
+                      <td>
+                        <button type="button" className="tabela-btn" onClick={() => abrirEditar(c)}>
+                          Editar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                   {aberta ? (
                     <tr className="tabela-redes__linha-detalhe">
-                      <td colSpan={6}>
+                      <td colSpan={colSpanTabela}>
                         <div
                           className="tabela-redes__detalhe-grid"
                           role="region"
@@ -1171,12 +1353,12 @@ function AbaCampanhas({ redeId }) {
             })}
             {!carregando && campanhas.length === 0 ? (
               <tr className="tabela-linha--placeholder">
-                <td colSpan={6}>Nenhuma campanha cadastrada.</td>
+                <td colSpan={colSpanTabela}>Nenhuma campanha cadastrada.</td>
               </tr>
             ) : null}
             {carregando ? (
               <tr className="tabela-linha--placeholder">
-                <td colSpan={6}>Carregando campanhas...</td>
+                <td colSpan={colSpanTabela}>Carregando campanhas...</td>
               </tr>
             ) : null}
           </tbody>
@@ -1186,19 +1368,7 @@ function AbaCampanhas({ redeId }) {
   );
 }
 
-function PainelEmBreve({ titulo, texto }) {
-  return (
-    <div className="rede-detalhes__painel-placeholder">
-      <p>{texto}</p>
-      <strong>
-        {titulo} — Em desenvolvimento. Aqui ficara o conteudo filtrado por esta rede, sem precisar de menu
-        lateral separado.
-      </strong>
-    </div>
-  );
-}
-
-export default function RedeDetalhesSecao({ rede, onVoltar, onEditarRede }) {
+export default function RedeDetalhesSecao({ rede, onVoltar, onEditarRede, onRedeRefresh }) {
   const [abaAtiva, setAbaAtiva] = useState("visao-geral");
 
   useEffect(() => {
@@ -1298,16 +1468,11 @@ export default function RedeDetalhesSecao({ rede, onVoltar, onEditarRede }) {
 
           {abaAtiva === "campanhas" ? <AbaCampanhas redeId={rede.id} /> : null}
 
-          {abaAtiva === "carteira" ? (
-            <PainelEmBreve
-              titulo="Carteira e financeiro"
-              texto="Saldos, movimentacoes e conciliacao desta rede."
-            />
-          ) : null}
+          {abaAtiva === "carteira" ? <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} /> : null}
 
-          {abaAtiva === "vouchers" ? (
-            <PainelEmBreve titulo="Vouchers" texto="Emissao, validacao e acompanhamento de vouchers da rede." />
-          ) : null}
+          {abaAtiva === "premios" ? <AbaPremiosRede redeId={rede.id} /> : null}
+
+          {abaAtiva === "vouchers" ? <AbaVouchersRede rede={rede} /> : null}
         </div>
       </div>
     </div>

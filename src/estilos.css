@@ -724,6 +724,67 @@ body {
   max-width: 48rem;
 }
 
+.aba-vouchers {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 52rem;
+}
+
+.aba-vouchers__lista-vazia {
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 20px 16px;
+  text-align: center;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.aba-vouchers__doc-card {
+  margin-top: 4px;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.aba-vouchers__doc-card h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.aba-vouchers__doc-card p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.aba-vouchers__doc-card ul {
+  margin: 0 0 12px;
+  padding-left: 1.2rem;
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.aba-vouchers__doc-card li {
+  margin-bottom: 6px;
+}
+
+.aba-vouchers__doc-nota {
+  margin-bottom: 0 !important;
+  padding-top: 4px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 13px !important;
+  color: #64748b !important;
+}
+
 .rede-detalhes__resumo-grid {
   margin: 0;
 }
@@ -1011,6 +1072,25 @@ body {
 .tabela-redes--campanhas-principal {
   min-width: 520px;
   width: 100%;
+}
+
+.tabela-premio__titulo-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tabela-premio__sem-img {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #94a3b8;
+  font-size: 13px;
 }
 
 .tabela-campanha__col-promo {

@@ -1,4 +1,5 @@
 import { montarUrlApi } from "../configuracao/apiConfig";
+import { prefixoApiRedeGestorOuGerente } from "../configuracao/painelApi";
 import { limparSessao } from "./sessaoServico";
 
 function obterHeadersAutenticados() {
@@ -43,15 +44,22 @@ function ehErroAutenticacao(mensagem) {
 }
 
 export async function listarCampanhasRede(idRede) {
-  const params = new URLSearchParams({ id_rede: idRede });
-  const dados = await requestAutenticada(`/v1/admin/campanhas/dev/listar?${params.toString()}`, {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  const path = prefixo
+    ? `${prefixo}/campanhas/listar`
+    : `/v1/admin/campanhas/dev/listar?${new URLSearchParams({ id_rede: idRede }).toString()}`;
+  const dados = await requestAutenticada(path, {
     method: "GET"
   });
   return dados?.itens || [];
 }
 
 export async function criarCampanhaRede(payload) {
-  const dados = await requestAutenticada("/v1/admin/campanhas/dev/criar", {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  const path = prefixo
+    ? `${prefixo}/campanhas/criar`
+    : "/v1/admin/campanhas/dev/criar";
+  const dados = await requestAutenticada(path, {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -59,7 +67,11 @@ export async function criarCampanhaRede(payload) {
 }
 
 export async function editarCampanhaRede(payload) {
-  await requestAutenticada("/v1/admin/campanhas/dev/editar", {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  const path = prefixo
+    ? `${prefixo}/campanhas/editar`
+    : "/v1/admin/campanhas/dev/editar";
+  await requestAutenticada(path, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });

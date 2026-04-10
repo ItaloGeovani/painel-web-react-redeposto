@@ -1,4 +1,5 @@
 import { montarUrlApi } from "../configuracao/apiConfig";
+import { gestorRedeLogado } from "../configuracao/painelApi";
 import { limparSessao } from "./sessaoServico";
 
 function obterHeadersAutenticados() {
@@ -21,6 +22,9 @@ async function requestAutenticada(caminho, options = {}) {
   const payload = await resposta.json().catch(() => ({}));
   if (!resposta.ok) {
     const mensagemErro = payload?.erro || "Falha na operacao.";
+    const detalhe = payload?.detalhe;
+    const textoCompleto =
+      detalhe && String(detalhe).trim() ? `${mensagemErro} (${detalhe})` : mensagemErro;
     if (resposta.status === 401 && ehErroAutenticacao(mensagemErro)) {
       limparSessao();
       window.dispatchEvent(
@@ -29,7 +33,7 @@ async function requestAutenticada(caminho, options = {}) {
         })
       );
     }
-    throw new Error(mensagemErro);
+    throw new Error(textoCompleto);
   }
   return payload;
 }
@@ -48,7 +52,10 @@ export async function criarGestorRede(payload) {
 }
 
 export async function listarGestoresRede() {
-  const dados = await requestAutenticada("/v1/admin/gestores-rede/dev/listar", {
+  const path = gestorRedeLogado()
+    ? "/v1/gestor-rede/dev/gestores"
+    : "/v1/admin/gestores-rede/dev/listar";
+  const dados = await requestAutenticada(path, {
     method: "GET"
   });
   return dados?.itens || [];

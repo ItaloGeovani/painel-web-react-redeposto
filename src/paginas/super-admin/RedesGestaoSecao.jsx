@@ -152,6 +152,7 @@ export default function RedesGestaoSecao() {
         rede={redeEmDetalhe}
         onVoltar={() => setRedeDetalheId(null)}
         onEditarRede={abrirEdicaoDesdeDetalhe}
+        onRedeRefresh={carregar}
       />
     );
   }

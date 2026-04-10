@@ -3,6 +3,9 @@ import PainelLayout from "../../componentes/layout/PainelLayout";
 import { obterResumoDashboardAdmin } from "../../servicos/dashboardServico";
 import { toastErro } from "../../servicos/toastServico";
 import RedesGestaoSecao from "./RedesGestaoSecao";
+import SuperAdminAuditoriaSecao from "./SuperAdminAuditoriaSecao";
+import SuperAdminConfiguracaoSecao from "./SuperAdminConfiguracaoSecao";
+import SuperAdminRelatoriosSecao from "./SuperAdminRelatoriosSecao";
 
 const MENUS_SUPER_ADMIN = [
   { id: "visao-geral", nome: "Visao Geral", titulo: "Dashboard do Administrador Global", subtitulo: "Visao consolidada da plataforma para decisoes rapidas." },
@@ -11,13 +14,8 @@ const MENUS_SUPER_ADMIN = [
     nome: "Redes",
     titulo: "Gestao de Redes",
     subtitulo:
-      "Use Gerenciar para o painel da rede: postos, equipe por posto, gestor, clientes e demais abas."
+      "Use Gerenciar para o painel da rede: postos, equipe por posto, gestor, clientes, campanhas, carteira, premios e vouchers."
   },
-  { id: "postos", nome: "Postos", titulo: "Postos e Unidades", subtitulo: "Cadastro e manutencao de postos vinculados as redes." },
-  { id: "campanhas", nome: "Campanhas", titulo: "Campanhas e Promocoes", subtitulo: "Gestao de regras promocionais, vigencias e desempenho." },
-  { id: "carteira", nome: "Carteira e Financeiro", titulo: "Carteira e Financeiro", subtitulo: "Acompanhamento de saldos, movimentacoes e conciliacao." },
-  { id: "vouchers", nome: "Vouchers", titulo: "Vouchers", subtitulo: "Emissao, validacao e acompanhamento de vouchers da plataforma." },
-  { id: "planos", nome: "Planos e Cobranca", titulo: "Planos e Cobranca", subtitulo: "Planos comerciais, mensalidades e situacao de cobranca." },
   { id: "relatorios", nome: "Relatorios", titulo: "Relatorios", subtitulo: "Relatorios gerenciais, operacionais e financeiros da plataforma." },
   { id: "auditoria", nome: "Auditoria", titulo: "Auditoria e Logs", subtitulo: "Trilha de auditoria de eventos criticos e acoes administrativas." },
   { id: "configuracoes", nome: "Configuracoes do Sistema", titulo: "Configuracoes do Sistema", subtitulo: "Parametros globais, identidade visual e integracoes." }
@@ -51,6 +49,8 @@ export default function DashboardSuperAdminPagina({ sessao, onSair }) {
     [menuAtivo]
   );
 
+  const idMenuAtivo = menuConfig.id;
+
   const tituloSecao = useMemo(() => {
     return menuConfig.titulo;
   }, [menuConfig]);
@@ -60,10 +60,19 @@ export default function DashboardSuperAdminPagina({ sessao, onSair }) {
   }, [menuConfig]);
 
   const conteudoSecao = useMemo(() => {
-    if (menuAtivo === "Redes") {
+    if (idMenuAtivo === "redes") {
       return <RedesGestaoSecao />;
     }
-    if (menuAtivo === "Visao Geral") {
+    if (idMenuAtivo === "relatorios") {
+      return <SuperAdminRelatoriosSecao />;
+    }
+    if (idMenuAtivo === "auditoria") {
+      return <SuperAdminAuditoriaSecao />;
+    }
+    if (idMenuAtivo === "configuracoes") {
+      return <SuperAdminConfiguracaoSecao />;
+    }
+    if (idMenuAtivo === "visao-geral") {
       const valorMensal = Number(resumo?.receita_mensal_prevista || 0);
       const valorImplantacao = Number(resumo?.receita_implantacao_prevista || 0);
 
@@ -111,11 +120,11 @@ export default function DashboardSuperAdminPagina({ sessao, onSair }) {
     return (
       <article className="card-resumo">
         <h3>{menuConfig.titulo}</h3>
-        <strong>Em desenvolvimento</strong>
-        <p>Menu criado no lateral para nao esquecermos. Implementacao desta secao sera feita nos proximos passos.</p>
+        <strong>Secao nao encontrada</strong>
+        <p>Menu desconhecido.</p>
       </article>
     );
-  }, [menuAtivo, menuConfig, resumo, carregandoResumo]);
+  }, [idMenuAtivo, menuConfig.titulo, resumo, carregandoResumo]);
 
   return (
     <PainelLayout

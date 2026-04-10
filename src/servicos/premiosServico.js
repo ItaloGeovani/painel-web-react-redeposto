@@ -43,25 +43,36 @@ function ehErroAutenticacao(mensagem) {
   return texto.includes("token invalido") || texto.includes("sessao expirada") || texto.includes("token ausente");
 }
 
-export async function listarPostosRede(idRede) {
+export async function listarPremiosRede(idRede) {
   const prefixo = prefixoApiRedeGestorOuGerente();
   const path = prefixo
-    ? `${prefixo}/postos/listar`
-    : `/v1/admin/postos/dev/listar?${new URLSearchParams({ id_rede: idRede }).toString()}`;
+    ? `${prefixo}/premios/listar`
+    : `/v1/admin/premios/dev/listar?${new URLSearchParams({ id_rede: idRede }).toString()}`;
   const dados = await requestAutenticada(path, {
     method: "GET"
   });
   return dados?.itens || [];
 }
 
-export async function criarPostoRede(payload) {
+export async function criarPremioRede(payload) {
   const prefixo = prefixoApiRedeGestorOuGerente();
   const path = prefixo
-    ? `${prefixo}/postos/criar`
-    : "/v1/admin/postos/dev/criar";
+    ? `${prefixo}/premios/criar`
+    : "/v1/admin/premios/dev/criar";
   const dados = await requestAutenticada(path, {
     method: "POST",
     body: JSON.stringify(payload)
   });
-  return dados?.posto;
+  return dados?.premio;
+}
+
+export async function editarPremioRede(payload) {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  const path = prefixo
+    ? `${prefixo}/premios/editar`
+    : "/v1/admin/premios/dev/editar";
+  await requestAutenticada(path, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
 }

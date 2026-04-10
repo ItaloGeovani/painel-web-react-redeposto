@@ -15,7 +15,11 @@ const estadoInicial = {
 };
 
 /* idRedeFixo + redeContexto: modo embutido na tela de detalhes da rede (sem escolher rede no formulario). */
-export default function GestoresRedeGestaoSecao({ idRedeFixo = null, redeContexto = null }) {
+export default function GestoresRedeGestaoSecao({
+  idRedeFixo = null,
+  redeContexto = null,
+  somenteLeituraGestores = false
+}) {
   const modoRedeUnica = Boolean(idRedeFixo);
   const [redes, setRedes] = useState([]);
   const [gestores, setGestores] = useState([]);
@@ -169,12 +173,14 @@ export default function GestoresRedeGestaoSecao({ idRedeFixo = null, redeContext
         ) : (
           <p>Cadastre o usuario gestor da rede para acesso ao sistema administrativo.</p>
         )}
-        <button type="button" className="botao-primario" onClick={abrirCriacao}>
-          {mostrarFormulario && !form.id ? "Fechar formulario" : "Adicionar Gestor"}
-        </button>
+        {somenteLeituraGestores ? null : (
+          <button type="button" className="botao-primario" onClick={abrirCriacao}>
+            {mostrarFormulario && !form.id ? "Fechar formulario" : "Adicionar Gestor"}
+          </button>
+        )}
       </div>
 
-      {mostrarFormulario ? (
+      {mostrarFormulario && !somenteLeituraGestores ? (
         <form className="form-rede" onSubmit={onSubmit}>
           {form.id ? <p className="form-rede__titulo-aux">Editando gestor da rede</p> : null}
           <div className="form-rede__grid">
@@ -350,15 +356,19 @@ export default function GestoresRedeGestaoSecao({ idRedeFixo = null, redeContext
                       </span>
                     </td>
                     <td>
-                      <div className="tabela-redes__acoes">
-                        <button
-                          type="button"
-                          className="tabela-btn tabela-btn--acento"
-                          onClick={() => abrirEdicao(gestor)}
-                        >
-                          Editar
-                        </button>
-                      </div>
+                      {somenteLeituraGestores ? (
+                        "—"
+                      ) : (
+                        <div className="tabela-redes__acoes">
+                          <button
+                            type="button"
+                            className="tabela-btn tabela-btn--acento"
+                            onClick={() => abrirEdicao(gestor)}
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                   {aberta ? (

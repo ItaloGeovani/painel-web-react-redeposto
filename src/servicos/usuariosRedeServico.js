@@ -1,4 +1,5 @@
 import { montarUrlApi } from "../configuracao/apiConfig";
+import { prefixoApiRedeGestorOuGerente } from "../configuracao/painelApi";
 import { limparSessao } from "./sessaoServico";
 
 function obterHeadersAutenticados() {
@@ -21,6 +22,9 @@ async function requestAutenticada(caminho, options = {}) {
   const payload = await resposta.json().catch(() => ({}));
   if (!resposta.ok) {
     const mensagemErro = payload?.erro || "Falha na operacao.";
+    const detalhe = payload?.detalhe;
+    const textoCompleto =
+      detalhe && String(detalhe).trim() ? `${mensagemErro} (${detalhe})` : mensagemErro;
     if (resposta.status === 401 && ehErroAutenticacao(mensagemErro)) {
       limparSessao();
       window.dispatchEvent(
@@ -29,7 +33,7 @@ async function requestAutenticada(caminho, options = {}) {
         })
       );
     }
-    throw new Error(mensagemErro);
+    throw new Error(textoCompleto);
   }
   return payload;
 }
@@ -44,17 +48,23 @@ export async function listarUsuariosRede(idRede, opcoes = {}) {
   const limite = opcoes.limite != null ? Number(opcoes.limite) : 20;
   const offset = opcoes.offset != null ? Number(opcoes.offset) : 0;
   const params = new URLSearchParams({
-    id_rede: idRede,
     limite: String(limite),
     offset: String(offset)
   });
+  if (!prefixoApiRedeGestorOuGerente()) {
+    params.set("id_rede", idRede);
+  }
   if (opcoes.papeis) {
     params.set("papeis", String(opcoes.papeis));
   }
   if (opcoes.id_posto) {
     params.set("id_posto", String(opcoes.id_posto));
   }
-  const dados = await requestAutenticada(`/v1/admin/usuarios-rede/dev/listar?${params.toString()}`, {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  const path = prefixo
+    ? `${prefixo}/usuarios-rede/listar?${params.toString()}`
+    : `/v1/admin/usuarios-rede/dev/listar?${params.toString()}`;
+  const dados = await requestAutenticada(path, {
     method: "GET"
   });
   return {
@@ -67,8 +77,25 @@ export async function listarUsuariosRede(idRede, opcoes = {}) {
 
 /** Cria gerente de posto ou frentista na rede (admin global). */
 export async function criarUsuarioEquipe(payload) {
-  const dados = await requestAutenticada("/v1/admin/usuarios-rede/dev/criar-equipe", {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  const path = prefixo
+    ? `${prefixo}/usuarios-rede/criar-equipe`
+    : "/v1/admin/usuarios-rede/dev/criar-equipe";
+  const dados = await requestAutenticada(path, {
     method: "POST",
+    body: JSON.stringify(payload)
+  });
+  return dados?.usuario;
+}
+
+/** Atualiza gerente de posto ou frentista (nome, email, telefone, papel, posto, ativo, senha opcional). */
+export async function editarUsuarioEquipe(payload) {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  const path = prefixo
+    ? `${prefixo}/usuarios-rede/editar-equipe`
+    : "/v1/admin/usuarios-rede/dev/editar-equipe";
+  const dados = await requestAutenticada(path, {
+    method: "PATCH",
     body: JSON.stringify(payload)
   });
   return dados?.usuario;

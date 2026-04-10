@@ -5,10 +5,12 @@ import {
   PAPEL_GESTOR_REDE,
   PAPEL_SUPER_ADMIN
 } from "./constantes/papeis";
-import { MENUS_FRENTISTA, MENUS_GERENTE_POSTO, MENUS_GESTOR_REDE } from "./constantes/menusPorPapel";
+import { configurarPainelApi } from "./configuracao/painelApi";
 import LoginPagina from "./paginas/login/LoginPagina";
 import PapelNaoSuportadoPagina from "./paginas/nao-suportado/PapelNaoSuportadoPagina";
-import DashboardPorMenusPagina from "./paginas/painel-comum/DashboardPorMenusPagina";
+import DashboardGestorRedePagina from "./paginas/gestor-rede/DashboardGestorRedePagina";
+import DashboardGerentePostoPagina from "./paginas/gerente-posto/DashboardGerentePostoPagina";
+import DashboardFrentistaPagina from "./paginas/frentista/DashboardFrentistaPagina";
 import DashboardSuperAdminPagina from "./paginas/super-admin/DashboardSuperAdminPagina";
 import { carregarSessao, limparSessao, salvarSessao } from "./servicos/sessaoServico";
 import { EVENTO_TOAST } from "./servicos/toastServico";
@@ -17,6 +19,10 @@ export default function App() {
   const [sessao, setSessao] = useState(() => carregarSessao());
   const [mensagemSessaoExpirada, setMensagemSessaoExpirada] = useState("");
   const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    configurarPainelApi(sessao);
+  }, [sessao]);
 
   useEffect(() => {
     function onSessaoExpirada(evento) {
@@ -87,21 +93,15 @@ export default function App() {
     }
 
     if (papel === PAPEL_GESTOR_REDE) {
-      return (
-        <DashboardPorMenusPagina menus={MENUS_GESTOR_REDE} sessao={sessao} onSair={onSairPainel} />
-      );
+      return <DashboardGestorRedePagina sessao={sessao} onSair={onSairPainel} />;
     }
 
     if (papel === PAPEL_GERENTE_POSTO) {
-      return (
-        <DashboardPorMenusPagina menus={MENUS_GERENTE_POSTO} sessao={sessao} onSair={onSairPainel} />
-      );
+      return <DashboardGerentePostoPagina sessao={sessao} onSair={onSairPainel} />;
     }
 
     if (papel === PAPEL_FRENTISTA) {
-      return (
-        <DashboardPorMenusPagina menus={MENUS_FRENTISTA} sessao={sessao} onSair={onSairPainel} />
-      );
+      return <DashboardFrentistaPagina sessao={sessao} onSair={onSairPainel} />;
     }
 
     return (

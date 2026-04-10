@@ -74,6 +74,27 @@ export async function loginPainel(email, senha) {
     if (respostaGestor.ok) {
       return payloadGestor;
     }
+
+    if (respostaGestor.status === 401) {
+      const respostaEquipe = await fetch(montarUrlApi("/v1/usuario-rede/dev/login"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email, senha })
+      });
+      const payloadEquipe = await lerPayload(respostaEquipe);
+      if (respostaEquipe.ok) {
+        return payloadEquipe;
+      }
+      const mensagem =
+        payloadEquipe?.erro ||
+        payloadGestor?.erro ||
+        payloadAdmin?.erro ||
+        "credenciais invalidas";
+      throw new Error(mensagem);
+    }
+
     const mensagem =
       payloadGestor?.erro || payloadAdmin?.erro || "credenciais invalidas";
     throw new Error(mensagem);

@@ -5,7 +5,6 @@ import {
   PAPEL_GESTOR_REDE,
   PAPEL_SUPER_ADMIN
 } from "./constantes/papeis";
-import { configurarPainelApi } from "./configuracao/painelApi";
 import LoginPagina from "./paginas/login/LoginPagina";
 import PapelNaoSuportadoPagina from "./paginas/nao-suportado/PapelNaoSuportadoPagina";
 import DashboardGestorRedePagina from "./paginas/gestor-rede/DashboardGestorRedePagina";
@@ -19,10 +18,6 @@ export default function App() {
   const [sessao, setSessao] = useState(() => carregarSessao());
   const [mensagemSessaoExpirada, setMensagemSessaoExpirada] = useState("");
   const [toasts, setToasts] = useState([]);
-
-  useEffect(() => {
-    configurarPainelApi(sessao);
-  }, [sessao]);
 
   useEffect(() => {
     function onSessaoExpirada(evento) {

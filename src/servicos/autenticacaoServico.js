@@ -45,11 +45,11 @@ export async function loginGestorRede(email, senha) {
 }
 
 /**
- * Tenta admin geral; se 401, tenta gestor da rede.
- * Mesma tela de login para ambos os perfis.
+ * Login unificado do painel (uma requisicao): servidor tenta admin, gestor e equipe na ordem.
+ * Endpoints legados /v1/admin-geral/dev/login e /v1/gestor-rede/dev/login continuam disponiveis.
  */
 export async function loginPainel(email, senha) {
-  const respostaAdmin = await fetch(montarUrlApi("/v1/admin-geral/dev/login"), {
+  const resposta = await fetch(montarUrlApi("/v1/autenticacao/login-painel"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -57,48 +57,12 @@ export async function loginPainel(email, senha) {
     body: JSON.stringify({ email, senha })
   });
 
-  const payloadAdmin = await lerPayload(respostaAdmin);
-  if (respostaAdmin.ok) {
-    return payloadAdmin;
-  }
+  const payload = await lerPayload(resposta);
 
-  if (respostaAdmin.status === 401) {
-    const respostaGestor = await fetch(montarUrlApi("/v1/gestor-rede/dev/login"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ email, senha })
-    });
-    const payloadGestor = await lerPayload(respostaGestor);
-    if (respostaGestor.ok) {
-      return payloadGestor;
-    }
-
-    if (respostaGestor.status === 401) {
-      const respostaEquipe = await fetch(montarUrlApi("/v1/usuario-rede/dev/login"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email, senha })
-      });
-      const payloadEquipe = await lerPayload(respostaEquipe);
-      if (respostaEquipe.ok) {
-        return payloadEquipe;
-      }
-      const mensagem =
-        payloadEquipe?.erro ||
-        payloadGestor?.erro ||
-        payloadAdmin?.erro ||
-        "credenciais invalidas";
-      throw new Error(mensagem);
-    }
-
-    const mensagem =
-      payloadGestor?.erro || payloadAdmin?.erro || "credenciais invalidas";
+  if (!resposta.ok) {
+    const mensagem = payload?.erro || "Falha ao autenticar.";
     throw new Error(mensagem);
   }
 
-  throw new Error(payloadAdmin?.erro || "Falha ao autenticar.");
+  return payload;
 }

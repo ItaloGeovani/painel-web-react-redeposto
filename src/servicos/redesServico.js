@@ -148,3 +148,37 @@ export async function atualizarConfigVoucherRede(payload) {
   });
   return dados?.rede;
 }
+
+/** Modulos opcionais do app (Indique e ganhe, check-in, gire e ganhe, redes sociais). Gestor ou super-admin. */
+export async function atualizarAppModulosRede(payload) {
+  if (gerentePostoLogado() || frentistaLogado()) {
+    throw new Error("Apenas o gestor da rede ou o administrador podem alterar os modulos do app.");
+  }
+  const isGestor = gestorRedeLogado();
+  const isAdmin = superAdminLogado();
+  if (!isGestor && !isAdmin) {
+    throw new Error("Sessao nao autorizada a alterar modulos do app.");
+  }
+  const path = isGestor
+    ? "/v1/gestor-rede/dev/redes/app-modulos"
+    : "/v1/admin/redes/dev/app-modulos";
+  const corpo = isGestor
+    ? {
+        app_modulo_indique_ganhe: !!payload.app_modulo_indique_ganhe,
+        app_modulo_checkin_diario: !!payload.app_modulo_checkin_diario,
+        app_modulo_gire_ganhe: !!payload.app_modulo_gire_ganhe,
+        app_modulo_redes_sociais: !!payload.app_modulo_redes_sociais
+      }
+    : {
+        id: payload.id,
+        app_modulo_indique_ganhe: !!payload.app_modulo_indique_ganhe,
+        app_modulo_checkin_diario: !!payload.app_modulo_checkin_diario,
+        app_modulo_gire_ganhe: !!payload.app_modulo_gire_ganhe,
+        app_modulo_redes_sociais: !!payload.app_modulo_redes_sociais
+      };
+  const dados = await requestAutenticada(path, {
+    method: "PATCH",
+    body: JSON.stringify(corpo)
+  });
+  return dados?.rede;
+}

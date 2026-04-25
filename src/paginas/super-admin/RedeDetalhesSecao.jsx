@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { datetimeLocalParaIso, isoParaDatetimeLocal } from "../../util/dataHoraLocal";
+import { listarCombustiveisRede } from "../../servicos/combustiveisRedeServico";
 import { criarCampanhaRede, editarCampanhaRede, listarCampanhasRede } from "../../servicos/campanhasServico";
 import { criarPostoRede, listarPostosRede } from "../../servicos/postosServico";
 import { criarUsuarioEquipe, editarUsuarioEquipe, listarUsuariosRede } from "../../servicos/usuariosRedeServico";
@@ -64,7 +65,11 @@ const estadoInicialCampanha = {
   base_desconto: "VALOR_COMPRA",
   valor_desconto: "",
   valor_minimo_compra: "0",
-  max_usos_por_cliente: ""
+  max_usos_por_cliente: "",
+  ids_combustiveis_rede: [],
+  litros_min: "",
+  litros_max: "",
+  valor_maximo_compra: ""
 };
 
 function formatarCnpjExibicao(cnpj) {
@@ -876,6 +881,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
   const [formCampanha, setFormCampanha] = useState(estadoInicialCampanha);
   const [salvando, setSalvando] = useState(false);
   const [campanhaExpandidaId, setCampanhaExpandidaId] = useState(null);
+  const [combustiveisRede, setCombustiveisRede] = useState([]);
 
   async function carregar() {
     setCarregando(true);
@@ -898,7 +904,11 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       (itens) => ({ ok: true, itens }),
       (err) => ({ ok: false, err })
     );
-    const [rCamp, rPost] = await Promise.all([campanhasP, postosP]);
+    const combP = listarCombustiveisRede().then(
+      (itens) => ({ ok: true, itens }),
+      (err) => ({ ok: false, err })
+    );
+    const [rCamp, rPost, rComb] = await Promise.all([campanhasP, postosP, combP]);
     if (rCamp.ok) {
       setCampanhas(rCamp.itens);
     } else {
@@ -910,6 +920,11 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
     } else {
       setPostos([]);
       toastErro(rPost.err?.message || "Falha ao carregar postos da rede.");
+    }
+    if (rComb.ok) {
+      setCombustiveisRede(rComb.itens);
+    } else {
+      setCombustiveisRede([]);
     }
     setCarregando(false);
   }
@@ -950,8 +965,21 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
     setMostrarForm(true);
   }
 
+  function alternarCombustivelCampanha(id) {
+    setFormCampanha((p) => {
+      const s = new Set(p.ids_combustiveis_rede || []);
+      if (s.has(id)) {
+        s.delete(id);
+      } else {
+        s.add(id);
+      }
+      return { ...p, ids_combustiveis_rede: Array.from(s) };
+    });
+  }
+
   function abrirEditar(c) {
     setEditandoId(c.id);
+    const idsC = Array.isArray(c.ids_combustiveis_rede) ? c.ids_combustiveis_rede : [];
     setFormCampanha({
       id: c.id,
       nome: c.nome || "",
@@ -964,11 +992,17 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       status: c.status || "ATIVA",
       canal: c.valida_no_posto_fisico ? "posto_fisico" : "app",
       modalidade_desconto: c.modalidade_desconto || "NENHUM",
-      base_desconto: c.base_desconto || "VALOR_COMPRA",
+      base_desconto:
+        c.base_desconto === "UNIDADE" ? "VALOR_COMPRA" : c.base_desconto || "VALOR_COMPRA",
       valor_desconto: c.valor_desconto != null && c.valor_desconto !== "" ? String(c.valor_desconto) : "",
       valor_minimo_compra:
         c.valor_minimo_compra != null && c.valor_minimo_compra !== "" ? String(c.valor_minimo_compra) : "0",
-      max_usos_por_cliente: c.max_usos_por_cliente != null ? String(c.max_usos_por_cliente) : ""
+      max_usos_por_cliente: c.max_usos_por_cliente != null ? String(c.max_usos_por_cliente) : "",
+      ids_combustiveis_rede: idsC,
+      litros_min: c.litros_min != null && c.litros_min !== "" ? String(c.litros_min) : "",
+      litros_max: c.litros_max != null && c.litros_max !== "" ? String(c.litros_max) : "",
+      valor_maximo_compra:
+        c.valor_maximo_compra != null && c.valor_maximo_compra !== "" ? String(c.valor_maximo_compra) : ""
     });
     setMostrarForm(true);
   }
@@ -996,13 +1030,61 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       maxUsos = n;
     }
     const valorDesc = parseFloat(String(formCampanha.valor_desconto || "").replace(",", "."));
-    const vmin = parseFloat(String(formCampanha.valor_minimo_compra || "").replace(",", "."));
-    if (Number.isNaN(vmin) || vmin < 0) {
-      toastErro("Valor minimo da compra invalido (use 0 para qualquer compra).");
+    const parseMoney = (s) => {
+      const t = String(s || "")
+        .trim()
+        .replace(/\./g, "")
+        .replace(",", ".");
+      const n = parseFloat(t);
+      return Number.isNaN(n) ? null : n;
+    };
+    if (formCampanha.base_desconto === "VALOR_COMPRA") {
+      const vmin = parseMoney(formCampanha.valor_minimo_compra);
+      const vmax = parseMoney(formCampanha.valor_maximo_compra);
+      if (vmin == null || vmax == null || vmin < 0 || vmax < 0) {
+        toastErro("Informe valor minimo e maximo da compra (R$), ambos >= 0.");
+        return;
+      }
+      if (vmax < vmin) {
+        toastErro("O valor maximo da compra deve ser maior ou igual ao minimo.");
+        return;
+      }
+    }
+    if (formCampanha.base_desconto === "LITRO") {
+      const idsC = formCampanha.ids_combustiveis_rede || [];
+      if (idsC.length < 1) {
+        toastErro("Selecione ao menos um combustivel valido para a campanha por litro.");
+        return;
+      }
+      const parseLit = (s) => {
+        const t = String(s || "")
+          .trim()
+          .replace(/\./g, "")
+          .replace(",", ".");
+        const n = parseFloat(t);
+        return Number.isNaN(n) ? null : n;
+      };
+      const lmin = parseLit(formCampanha.litros_min);
+      const lmax = parseLit(formCampanha.litros_max);
+      if (lmin == null || lmax == null || lmin <= 0 || lmax < lmin) {
+        toastErro("Informe litros minimo e maximo validos (ex.: 5 e 50).");
+        return;
+      }
+    }
+    if (formCampanha.base_desconto === "LITRO" && (formCampanha.modalidade_desconto || "NENHUM") === "NENHUM") {
+      toastErro("Campanha por litro exige desconto percentual ou valor fixo (R$ por litro).");
       return;
     }
     setSalvando(true);
     try {
+      const parseLit = (s) => {
+        const t = String(s || "")
+          .trim()
+          .replace(/\./g, "")
+          .replace(",", ".");
+        const n = parseFloat(t);
+        return Number.isNaN(n) ? null : n;
+      };
       const base = {
         id_rede: redeId,
         nome: formCampanha.nome,
@@ -1013,13 +1095,22 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
         vigencia_inicio: vi,
         vigencia_fim: vf,
         status: formCampanha.status || "ATIVA",
-        valida_no_app: formCampanha.canal === "app",
-        valida_no_posto_fisico: formCampanha.canal === "posto_fisico",
+        valida_no_app: true,
+        valida_no_posto_fisico: false,
         modalidade_desconto: formCampanha.modalidade_desconto || "NENHUM",
         base_desconto: formCampanha.base_desconto || "VALOR_COMPRA",
         valor_desconto: Number.isNaN(valorDesc) ? 0 : valorDesc,
-        valor_minimo_compra: Number.isNaN(vmin) ? 0 : vmin,
-        max_usos_por_cliente: maxUsos
+        valor_minimo_compra:
+          formCampanha.base_desconto === "LITRO" ? 0 : (parseMoney(formCampanha.valor_minimo_compra) ?? 0),
+        valor_maximo_compra:
+          formCampanha.base_desconto === "LITRO" ? null : parseMoney(formCampanha.valor_maximo_compra),
+        max_usos_por_cliente: maxUsos,
+        litros_min:
+          formCampanha.base_desconto === "LITRO" ? parseLit(formCampanha.litros_min) : null,
+        litros_max:
+          formCampanha.base_desconto === "LITRO" ? parseLit(formCampanha.litros_max) : null,
+        ids_combustiveis_rede:
+          formCampanha.base_desconto === "LITRO" ? formCampanha.ids_combustiveis_rede || [] : []
       };
       if (editandoId) {
         await editarCampanhaRede({ ...base, id: editandoId });
@@ -1050,10 +1141,10 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
           </>
         ) : (
           <>
-            Escolha <strong>um</strong> canal: <strong>aplicativo</strong> ou <strong>posto fisico</strong> (nao sao
-            combinados). Escopo de posto: <strong>toda a rede</strong> ou <strong>um posto</strong>. Desconto: percentual
-            ou valor fixo sobre a compra, por litro ou por unidade; valor minimo da compra (0 = qualquer); limite de usos
-            por cliente (vazio = ilimitado ate o fim da vigencia).
+            Canal: <strong>aplicativo</strong> (promocoes exibidas no app). Escopo de posto: <strong>toda a rede</strong>{" "}
+            ou <strong>um posto</strong>. Desconto no valor da compra: defina faixa em R$ (minimo e maximo). Desconto por
+            litro: informe so combustiveis e faixa em litros (sem minimo de compra em R$). Limite de usos por cliente
+            (vazio = ilimitado ate o fim da vigencia).
           </>
         )}
       </p>
@@ -1083,29 +1174,9 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
             Datas em horario local; a API envia em UTC (ISO8601). Sem desconto: modalidade &quot;Nenhum&quot; e valor do
             desconto 0. Percentual: 0–100. Limite de usos: vazio = sem limite ate o fim da promocao.
           </p>
-          <div className="form-rede__grid form-rede__grid--canal-campanha">
-            <span className="form-rede__label-canal">Canal da promocao</span>
-            <label className="form-rede__radio-linha">
-              <input
-                type="radio"
-                name="gaspass-canal-campanha"
-                value="app"
-                checked={formCampanha.canal === "app"}
-                onChange={() => setFormCampanha((p) => ({ ...p, canal: "app" }))}
-              />
-              Aplicativo
-            </label>
-            <label className="form-rede__radio-linha">
-              <input
-                type="radio"
-                name="gaspass-canal-campanha"
-                value="posto_fisico"
-                checked={formCampanha.canal === "posto_fisico"}
-                onChange={() => setFormCampanha((p) => ({ ...p, canal: "posto_fisico" }))}
-              />
-              Posto fisico
-            </label>
-          </div>
+          <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form">
+            <strong>Canal:</strong> aplicativo (as promocoes valem apenas no app).
+          </p>
           <div className="form-rede__grid">
             <input
               className="campo__input"
@@ -1160,8 +1231,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
               aria-label="Base do desconto"
             >
               <option value="VALOR_COMPRA">Sobre o valor da compra</option>
-              <option value="LITRO">Por litro</option>
-              <option value="UNIDADE">Por unidade</option>
+              <option value="LITRO">Por litro (combustivel e faixa de litros)</option>
             </select>
             <input
               className="campo__input"
@@ -1170,13 +1240,26 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
               value={formCampanha.valor_desconto}
               onChange={(e) => setFormCampanha((p) => ({ ...p, valor_desconto: e.target.value }))}
             />
-            <input
-              className="campo__input"
-              placeholder="Valor minimo da compra (0 = qualquer)"
-              inputMode="decimal"
-              value={formCampanha.valor_minimo_compra}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, valor_minimo_compra: e.target.value }))}
-            />
+            {formCampanha.base_desconto === "VALOR_COMPRA" ? (
+              <>
+                <input
+                  className="campo__input"
+                  placeholder="Valor minimo da compra (R$)"
+                  inputMode="decimal"
+                  value={formCampanha.valor_minimo_compra}
+                  onChange={(e) => setFormCampanha((p) => ({ ...p, valor_minimo_compra: e.target.value }))}
+                  aria-label="Valor minimo da compra"
+                />
+                <input
+                  className="campo__input"
+                  placeholder="Valor maximo da compra (R$)"
+                  inputMode="decimal"
+                  value={formCampanha.valor_maximo_compra}
+                  onChange={(e) => setFormCampanha((p) => ({ ...p, valor_maximo_compra: e.target.value }))}
+                  aria-label="Valor maximo da compra"
+                />
+              </>
+            ) : null}
             <input
               className="campo__input"
               placeholder="Max usos por cliente (vazio = ilimitado)"
@@ -1184,6 +1267,51 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
               value={formCampanha.max_usos_por_cliente}
               onChange={(e) => setFormCampanha((p) => ({ ...p, max_usos_por_cliente: e.target.value }))}
             />
+            {formCampanha.base_desconto === "LITRO" ? (
+              <>
+                <input
+                  className="campo__input"
+                  placeholder="Litros minimos (inclusive)"
+                  inputMode="decimal"
+                  value={formCampanha.litros_min}
+                  onChange={(e) => setFormCampanha((p) => ({ ...p, litros_min: e.target.value }))}
+                  aria-label="Litros minimos"
+                />
+                <input
+                  className="campo__input"
+                  placeholder="Litros maximos (inclusive)"
+                  inputMode="decimal"
+                  value={formCampanha.litros_max}
+                  onChange={(e) => setFormCampanha((p) => ({ ...p, litros_max: e.target.value }))}
+                  aria-label="Litros maximos"
+                />
+                <div className="form-rede__input-span2 form-rede--comb-campanha">
+                  <span className="form-rede__titulo-aux" id="label-comb-campanha">
+                    Combustiveis validos (preco por litro vem do cadastro da rede)
+                  </span>
+                  {combustiveisRede.filter((x) => x && x.ativo).length === 0 ? (
+                    <p className="rede-detalhes__ajuda">
+                      Nenhum combustivel ativo. Cadastre em <strong>Combustiveis</strong> antes de criar a campanha.
+                    </p>
+                  ) : (
+                    <div className="form-rede__checks-col" role="group" aria-labelledby="label-comb-campanha">
+                      {combustiveisRede
+                        .filter((x) => x && x.ativo)
+                        .map((co) => (
+                          <label key={co.id} className="form-rede__check-linha">
+                            <input
+                              type="checkbox"
+                              checked={(formCampanha.ids_combustiveis_rede || []).includes(co.id)}
+                              onChange={() => alternarCombustivelCampanha(co.id)}
+                            />
+                            {co.nome}
+                          </label>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
             <input
               className="campo__input"
               type="datetime-local"
@@ -1319,16 +1447,41 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
                               ) : null}
                             </span>
                           </div>
-                          <div className="tabela-redes__detalhe-item">
-                            <span className="tabela-redes__detalhe-label">Min. compra</span>
-                            <span className="tabela-redes__detalhe-valor tabela-num">
-                              {c.valor_minimo_compra != null ? `R$ ${Number(c.valor_minimo_compra).toFixed(2)}` : "—"}
-                            </span>
-                          </div>
+                          {(c.base_desconto || "").toUpperCase() === "VALOR_COMPRA" ? (
+                            <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
+                              <span className="tabela-redes__detalhe-label">Faixa do valor do voucher (R$)</span>
+                              <span className="tabela-redes__detalhe-valor tabela-num">
+                                {c.valor_minimo_compra != null && c.valor_maximo_compra != null
+                                  ? `R$ ${Number(c.valor_minimo_compra).toFixed(2)} a R$ ${Number(
+                                      c.valor_maximo_compra
+                                    ).toFixed(2)}`
+                                  : c.valor_minimo_compra != null
+                                    ? `A partir de R$ ${Number(c.valor_minimo_compra).toFixed(2)} (sem teto no cadastro)`
+                                    : "—"}
+                              </span>
+                            </div>
+                          ) : null}
                           <div className="tabela-redes__detalhe-item">
                             <span className="tabela-redes__detalhe-label">Usos por cliente</span>
                             <span className="tabela-redes__detalhe-valor">{rotuloLimiteUsosCampanha(c)}</span>
                           </div>
+                          {(c.base_desconto || "").toUpperCase() === "LITRO" ? (
+                            <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
+                              <span className="tabela-redes__detalhe-label">Campanha por litro</span>
+                              <span className="tabela-redes__detalhe-valor">
+                                Faixa:{" "}
+                                {c.litros_min != null && c.litros_max != null
+                                  ? `${c.litros_min} a ${c.litros_max} L`
+                                  : "—"}
+                                {Array.isArray(c.ids_combustiveis_rede) && c.ids_combustiveis_rede.length ? (
+                                  <span className="tabela-celula__sub">
+                                    {" "}
+                                    · {c.ids_combustiveis_rede.length} combustivel(is) no escopo
+                                  </span>
+                                ) : null}
+                              </span>
+                            </div>
+                          ) : null}
                           <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--imagem">
                             <span className="tabela-redes__detalhe-label">Imagem</span>
                             <span className="tabela-redes__detalhe-valor">
@@ -1472,7 +1625,7 @@ export default function RedeDetalhesSecao({ rede, onVoltar, onEditarRede, onRede
 
           {abaAtiva === "premios" ? <AbaPremiosRede redeId={rede.id} /> : null}
 
-          {abaAtiva === "vouchers" ? <AbaVouchersRede rede={rede} /> : null}
+          {abaAtiva === "vouchers" ? <AbaVouchersRede rede={rede} onSalvo={onRedeRefresh} /> : null}
         </div>
       </div>
     </div>

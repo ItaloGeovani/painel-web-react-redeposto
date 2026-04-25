@@ -17,6 +17,12 @@ export const MENUS_GESTOR_REDE = [
     subtitulo: "Cadastro e operacao dos postos vinculados a rede."
   },
   {
+    id: "combustiveis",
+    nome: "Combustiveis",
+    titulo: "Combustiveis",
+    subtitulo: "Cadastro de combustiveis e preco por litro de referencia na rede."
+  },
+  {
     id: "campanhas",
     nome: "Campanhas",
     titulo: "Campanhas",
@@ -29,10 +35,16 @@ export const MENUS_GESTOR_REDE = [
     subtitulo: "Saldos, moeda virtual e visao financeira da rede."
   },
   {
+    id: "gateways-pagamento",
+    nome: "Gateways de pagamento",
+    titulo: "Gateways de pagamento",
+    subtitulo: "Credenciais e webhooks para receber pagamentos (PIX, etc.)."
+  },
+  {
     id: "vouchers",
     nome: "Vouchers",
     titulo: "Vouchers",
-    subtitulo: "Emissao, uso e acompanhamento de vouchers."
+    subtitulo: "Prazos da compra PIX, configuracao e acompanhamento de vouchers no app."
   },
   {
     id: "app-cards",
@@ -51,6 +63,12 @@ export const MENUS_GESTOR_REDE = [
     nome: "Relatorios",
     titulo: "Relatorios",
     subtitulo: "Relatorios gerenciais e operacionais da rede."
+  },
+  {
+    id: "configuracoes",
+    nome: "Configuracoes",
+    titulo: "Configuracoes",
+    subtitulo: "Ferramentas e testes, incluindo notificacoes push no app."
   },
   {
     id: "auditoria",
@@ -73,6 +91,12 @@ export const MENUS_GERENTE_POSTO = [
     nome: "Campanhas",
     titulo: "Campanhas",
     subtitulo: "Campanhas e promocoes da rede."
+  },
+  {
+    id: "combustiveis",
+    nome: "Combustiveis",
+    titulo: "Combustiveis",
+    subtitulo: "Combustiveis e preco por litro de referencia (mesmo catalogo da rede)."
   },
   {
     id: "carteira",
@@ -103,6 +127,12 @@ export const MENUS_GERENTE_POSTO = [
     nome: "Relatorios",
     titulo: "Relatorios",
     subtitulo: "Relatorios gerenciais e operacionais da rede."
+  },
+  {
+    id: "configuracoes",
+    nome: "Configuracoes",
+    titulo: "Configuracoes",
+    subtitulo: "Ferramentas e testes, incluindo notificacoes push no app."
   },
   {
     id: "auditoria",

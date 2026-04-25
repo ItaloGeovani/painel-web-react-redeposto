@@ -3,7 +3,8 @@ import {
   frentistaLogado,
   gestorRedeLogado,
   gerentePostoLogado,
-  prefixoApiRedeGestorOuGerente
+  prefixoApiRedeGestorOuGerente,
+  superAdminLogado
 } from "../configuracao/painelApi";
 import { limparSessao } from "./sessaoServico";
 
@@ -114,6 +115,36 @@ export async function atualizarMoedaVirtualRede(payload) {
   const dados = await requestAutenticada(path, {
     method: "PATCH",
     body: JSON.stringify(body)
+  });
+  return dados?.rede;
+}
+
+/** Prazos de voucher (compra PIX no app e uso no posto). Gestor ou super-admin. */
+export async function atualizarConfigVoucherRede(payload) {
+  if (gerentePostoLogado() || frentistaLogado()) {
+    throw new Error("Apenas o gestor da rede ou o administrador da plataforma podem alterar essas configuracoes.");
+  }
+  const isGestor = gestorRedeLogado();
+  const isAdmin = superAdminLogado();
+  if (!isGestor && !isAdmin) {
+    throw new Error("Sessao nao autorizada a alterar configuracao de voucher.");
+  }
+  const path = isGestor
+    ? "/v1/gestor-rede/dev/redes/config-voucher"
+    : "/v1/admin/redes/dev/config-voucher";
+  const corpo = isGestor
+    ? {
+        voucher_dias_validade_resgate: payload.voucher_dias_validade_resgate,
+        voucher_minutos_expira_pagamento_pix: payload.voucher_minutos_expira_pagamento_pix
+      }
+    : {
+        id: payload.id,
+        voucher_dias_validade_resgate: payload.voucher_dias_validade_resgate,
+        voucher_minutos_expira_pagamento_pix: payload.voucher_minutos_expira_pagamento_pix
+      };
+  const dados = await requestAutenticada(path, {
+    method: "PATCH",
+    body: JSON.stringify(corpo)
   });
   return dados?.rede;
 }

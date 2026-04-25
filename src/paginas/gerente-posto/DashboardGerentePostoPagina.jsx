@@ -9,8 +9,10 @@ import AbaPremiosRede from "../super-admin/AbaPremiosRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
 import { AbaCampanhas, ListaUsuariosRedePaginada, SecaoEquipePosto } from "../super-admin/RedeDetalhesSecao";
 import AppCardsRedeSecao from "../gestor-rede/AppCardsRedeSecao";
+import CombustiveisRedeSecao from "../gestor-rede/CombustiveisRedeSecao";
 import GestorRedeAuditoriaSecao from "../gestor-rede/GestorRedeAuditoriaSecao";
 import GestorRedeRelatoriosSecao from "../gestor-rede/GestorRedeRelatoriosSecao";
+import GestorConfiguracoesSecao from "../gestor-rede/GestorConfiguracoesSecao";
 
 export default function DashboardGerentePostoPagina({ sessao, onSair }) {
   const itensMenu = useMemo(() => MENUS_GERENTE_POSTO.map((m) => m.nome), []);
@@ -135,6 +137,8 @@ export default function DashboardGerentePostoPagina({ sessao, onSair }) {
         );
       case "campanhas":
         return <AbaCampanhas redeId={rede.id} />;
+      case "combustiveis":
+        return <CombustiveisRedeSecao />;
       case "carteira":
         return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} somenteLeituraMoeda />;
       case "vouchers":
@@ -145,6 +149,8 @@ export default function DashboardGerentePostoPagina({ sessao, onSair }) {
         return <AbaPremiosRede redeId={rede.id} />;
       case "relatorios":
         return <GestorRedeRelatoriosSecao />;
+      case "configuracoes":
+        return <GestorConfiguracoesSecao />;
       case "auditoria":
         return <GestorRedeAuditoriaSecao />;
       default:

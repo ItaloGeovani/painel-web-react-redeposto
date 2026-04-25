@@ -11,6 +11,9 @@ import { AbaCampanhas, AbaPostos, ListaUsuariosRedePaginada } from "../super-adm
 import AppCardsRedeSecao from "./AppCardsRedeSecao";
 import GestorRedeAuditoriaSecao from "./GestorRedeAuditoriaSecao";
 import GestorRedeRelatoriosSecao from "./GestorRedeRelatoriosSecao";
+import CombustiveisRedeSecao from "./CombustiveisRedeSecao";
+import GestorGatewaysPagamentoSecao from "./GestorGatewaysPagamentoSecao";
+import GestorConfiguracoesSecao from "./GestorConfiguracoesSecao";
 
 export default function DashboardGestorRedePagina({ sessao, onSair }) {
   const itensMenu = useMemo(() => MENUS_GESTOR_REDE.map((m) => m.nome), []);
@@ -98,18 +101,24 @@ export default function DashboardGestorRedePagina({ sessao, onSair }) {
         );
       case "postos":
         return <AbaPostos redeId={rede.id} />;
+      case "combustiveis":
+        return <CombustiveisRedeSecao />;
       case "campanhas":
         return <AbaCampanhas redeId={rede.id} />;
       case "carteira":
         return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} />;
+      case "gateways-pagamento":
+        return <GestorGatewaysPagamentoSecao />;
       case "vouchers":
-        return <AbaVouchersRede rede={rede} />;
+        return <AbaVouchersRede rede={rede} onSalvo={onRedeRefresh} />;
       case "app-cards":
         return <AppCardsRedeSecao redeId={rede.id} />;
       case "premios":
         return <AbaPremiosRede redeId={rede.id} />;
       case "relatorios":
         return <GestorRedeRelatoriosSecao />;
+      case "configuracoes":
+        return <GestorConfiguracoesSecao />;
       case "auditoria":
         return <GestorRedeAuditoriaSecao />;
       default:

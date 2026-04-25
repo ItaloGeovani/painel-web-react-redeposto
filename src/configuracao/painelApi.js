@@ -1,4 +1,9 @@
-import { PAPEL_FRENTISTA, PAPEL_GERENTE_POSTO, PAPEL_GESTOR_REDE } from "../constantes/papeis";
+import {
+  PAPEL_FRENTISTA,
+  PAPEL_GERENTE_POSTO,
+  PAPEL_GESTOR_REDE,
+  PAPEL_SUPER_ADMIN
+} from "../constantes/papeis";
 import { carregarSessao } from "../servicos/sessaoServico";
 
 /**
@@ -21,6 +26,10 @@ export function gerentePostoLogado() {
 
 export function frentistaLogado() {
   return papelNaSessao() === PAPEL_FRENTISTA;
+}
+
+export function superAdminLogado() {
+  return papelNaSessao() === PAPEL_SUPER_ADMIN;
 }
 
 /** Base do painel por papel (gestor / gerente / frentista); string vazia para admin. */

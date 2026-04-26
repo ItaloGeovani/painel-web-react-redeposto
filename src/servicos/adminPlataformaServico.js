@@ -79,3 +79,26 @@ export async function salvarConfigAppMobile(payload) {
   });
   return dados?.configuracao || null;
 }
+
+/** Versoes e URLs do app de cliente **desta rede** (sobrescrevem a configuracao global). */
+export async function obterConfigAppMobileRede(idRede) {
+  const p = new URLSearchParams({ id_rede: String(idRede || "").trim() });
+  const dados = await requestAutenticada(`/v1/admin/redes/dev/app-versao?${p.toString()}`, { method: "GET" });
+  return {
+    configuracaoRede: dados?.configuracao_rede || null,
+    possuiSobrescritura: Boolean(dados?.possui_sobrescritura),
+    configuracaoGlobal: dados?.configuracao_global || null
+  };
+}
+
+export async function salvarConfigAppMobileRede(payload) {
+  const dados = await requestAutenticada("/v1/admin/redes/dev/app-versao", {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+  return {
+    configuracaoRede: dados?.configuracao_rede || null,
+    possuiSobrescritura: true,
+    configuracaoGlobal: dados?.configuracao_global || null
+  };
+}

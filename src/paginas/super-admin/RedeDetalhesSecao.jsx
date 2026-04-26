@@ -9,6 +9,7 @@ import GestoresRedeGestaoSecao from "./GestoresRedeGestaoSecao";
 import CampanhaDescricaoEditor from "../../componentes/CampanhaDescricaoEditor";
 import AbaCarteiraRede from "./AbaCarteiraRede";
 import AbaVouchersRede from "./AbaVouchersRede";
+import AbaAppMovelRede from "./AbaAppMovelRede";
 import AbaPremiosRede from "./AbaPremiosRede";
 
 const TAMANHO_PAGINA = 10;
@@ -21,7 +22,8 @@ const ABAS_REDE = [
   { id: "campanhas", label: "Campanhas" },
   { id: "carteira", label: "Carteira" },
   { id: "premios", label: "Premios" },
-  { id: "vouchers", label: "Vouchers" }
+  { id: "vouchers", label: "Vouchers" },
+  { id: "app-movel", label: "App movel" }
 ];
 
 const estadoInicialEquipe = {
@@ -1626,6 +1628,8 @@ export default function RedeDetalhesSecao({ rede, onVoltar, onEditarRede, onRede
           {abaAtiva === "premios" ? <AbaPremiosRede redeId={rede.id} /> : null}
 
           {abaAtiva === "vouchers" ? <AbaVouchersRede rede={rede} onSalvo={onRedeRefresh} /> : null}
+
+          {abaAtiva === "app-movel" ? <AbaAppMovelRede redeId={rede.id} nomeRede={rede.nome_fantasia} /> : null}
         </div>
       </div>
     </div>

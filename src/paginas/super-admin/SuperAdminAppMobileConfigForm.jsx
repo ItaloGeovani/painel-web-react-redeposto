@@ -85,7 +85,8 @@ export default function SuperAdminAppMobileConfigForm() {
       <p className="rede-detalhes__ajuda" style={{ marginBottom: 16 }}>
         Defina a <strong>versao atual</strong> publicada em cada loja. O app instalado compara com o servidor (semver
         recomendado: <code>1.2.3</code>). Se a instalada for menor, a API indica atualizacao e o app pode exibir o
-        modal.
+        modal. Cada <strong>rede</strong> pode ter versoes proprias: em <strong>Redes &gt; [rede] &gt; App movel</strong>{" "}
+        o administrador cadastra a sobrescrita; sem isso, vale esta configuração global.
       </p>
       <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form" style={{ marginBottom: 12 }}>
         Endpoint publico (sem login): <code style={{ wordBreak: "break-all" }}>{exemploUrl}</code>

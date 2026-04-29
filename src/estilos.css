@@ -1001,6 +1001,66 @@ body {
   word-break: break-all;
 }
 
+.aba-vouchers__expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.aba-vouchers__expand-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.aba-vouchers__expand-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.aba-vouchers__row-detalhe td {
+  padding: 0 !important;
+  border-top: none !important;
+  background: #f8fafc;
+}
+
+.aba-vouchers__detalhe {
+  padding: 14px 16px 16px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.aba-vouchers__detalhe-grid {
+  display: grid;
+  gap: 10px 20px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  font-size: 13px;
+  color: #334155;
+}
+
+.aba-vouchers__detalhe-item dt {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.aba-vouchers__detalhe-item dd {
+  margin: 0;
+  font-weight: 500;
+  word-break: break-word;
+}
+
 .aba-vouchers__status {
   display: inline-block;
   padding: 2px 9px;

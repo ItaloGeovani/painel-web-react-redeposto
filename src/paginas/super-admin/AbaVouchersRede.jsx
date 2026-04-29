@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { gestorRedeLogado, superAdminLogado } from "../../configuracao/painelApi";
 import { atualizarConfigVoucherRede, listarVouchersRede } from "../../servicos/redesServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 
 const LIMITE_LISTA = 40;
+const TABELA_VOUCHERS_COLS = 7;
 
 const FILTROS_STATUS = [
   { value: "", label: "Todos os status" },
@@ -37,6 +38,17 @@ function fmtDataHora(iso) {
   return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
+function fmtLitros(v) {
+  if (v == null || v === "") {
+    return "—";
+  }
+  const n = Number(v);
+  if (!Number.isFinite(n)) {
+    return "—";
+  }
+  return `${n.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} L`;
+}
+
 function classeStatus(status) {
   switch (status) {
     case "AGUARDANDO_PAGAMENTO":
@@ -59,6 +71,17 @@ function rotuloStatus(status) {
   return f ? f.label : status;
 }
 
+function rotuloTipoCompra(tipo) {
+  const t = String(tipo || "").toUpperCase();
+  if (t === "LITRO") {
+    return "Por litro";
+  }
+  if (t === "UNIDADE") {
+    return "Por unidade";
+  }
+  return "Por valor";
+}
+
 export default function AbaVouchersRede({ rede, onSalvo }) {
   const [dias, setDias] = useState("7");
   const [minutos, setMinutos] = useState("30");
@@ -70,6 +93,7 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
   const [erroLista, setErroLista] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState("");
   const [offset, setOffset] = useState(0);
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
 
   const podeEditar = gestorRedeLogado() || superAdminLogado();
 
@@ -85,6 +109,10 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
   useEffect(() => {
     setOffset(0);
   }, [filtroStatus, rede.id]);
+
+  useEffect(() => {
+    setExpandedIds(new Set());
+  }, [offset, filtroStatus, rede.id]);
 
   const carregarLista = useCallback(async () => {
     if (!rede?.id) {
@@ -150,6 +178,22 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
   const totalPaginas = Math.max(1, Math.ceil(totalLista / LIMITE_LISTA));
   const temAnterior = offset > 0;
   const temProxima = offset + LIMITE_LISTA < totalLista;
+
+  function alternarExpandido(id) {
+    const sid = String(id || "");
+    if (!sid) {
+      return;
+    }
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sid)) {
+        next.delete(sid);
+      } else {
+        next.add(sid);
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="aba-vouchers">
@@ -221,8 +265,8 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
           Vouchers da rede <span className="aba-vouchers__lista-nome">{rede.nome_fantasia}</span>
         </h3>
         <p className="rede-detalhes__ajuda">
-          Compras via app com PIX: status, valores, prazos de pagamento e de uso no posto, e posto em que foi
-          resgatado quando houver registro.
+          Compras via app com PIX: use o botão <strong>+</strong> em cada linha para ver litros, combustível,
+          descontos, códigos e demais datas. A lista principal mostra só o essencial.
         </p>
 
         <div className="aba-vouchers__toolbar">
@@ -295,39 +339,129 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
             <table className="tabela-redes tabela-redes--compacta">
               <thead>
                 <tr>
+                  <th className="tabela-num" aria-label="Expandir detalhes" />
                   <th>Status</th>
                   <th>Cliente</th>
-                  <th className="tabela-num">Valor final</th>
-                  <th className="tabela-num">Litros</th>
-                  <th>Codigo</th>
+                  <th>Tipo</th>
+                  <th className="tabela-num">Total pedido</th>
+                  <th className="tabela-num">Pago (PIX)</th>
                   <th>Criado</th>
-                  <th>Expira PIX</th>
-                  <th>Valido no posto ate</th>
-                  <th>Usado em</th>
-                  <th>Posto (uso)</th>
                 </tr>
               </thead>
               <tbody>
-                {vouchers.map((v) => (
-                  <tr key={v.id}>
-                    <td>
-                      <span className={classeStatus(v.status)}>{rotuloStatus(v.status)}</span>
-                    </td>
-                    <td>
-                      <strong className="tabela-celula__principal">{v.cliente_nome_completo || "—"}</strong>
-                    </td>
-                    <td className="tabela-num">{fmtMoeda(v.valor_final)}</td>
-                    <td className="tabela-num">{v.litros != null ? Number(v.litros).toLocaleString("pt-BR") : "—"}</td>
-                    <td>
-                      <span className="aba-vouchers__codigo">{v.codigo_resgate || "—"}</span>
-                    </td>
-                    <td>{fmtDataHora(v.criado_em)}</td>
-                    <td>{fmtDataHora(v.expira_pagamento_em)}</td>
-                    <td>{fmtDataHora(v.expira_resgate_em)}</td>
-                    <td>{fmtDataHora(v.usado_em)}</td>
-                    <td>{v.posto_uso_nome || "—"}</td>
-                  </tr>
-                ))}
+                {vouchers.map((v) => {
+                  const vid = String(v.id || "");
+                  const aberto = expandedIds.has(vid);
+                  return (
+                    <Fragment key={vid}>
+                      <tr>
+                        <td className="tabela-num">
+                          <button
+                            type="button"
+                            className="aba-vouchers__expand-btn"
+                            aria-expanded={aberto}
+                            title={aberto ? "Recolher detalhes" : "Ver detalhes completos"}
+                            aria-label={
+                              aberto ? "Recolher detalhes do voucher" : "Expandir detalhes do voucher"
+                            }
+                            onClick={() => alternarExpandido(vid)}
+                          >
+                            {aberto ? "−" : "+"}
+                          </button>
+                        </td>
+                        <td>
+                          <span className={classeStatus(v.status)}>{rotuloStatus(v.status)}</span>
+                        </td>
+                        <td>
+                          <strong className="tabela-celula__principal">{v.cliente_nome_completo || "—"}</strong>
+                        </td>
+                        <td>
+                          <span className="tabela-celula__principal">{rotuloTipoCompra(v.tipo_compra)}</span>
+                          {v.campanha_titulo ? (
+                            <div className="tabela-redes__sub">{v.campanha_titulo}</div>
+                          ) : null}
+                        </td>
+                        <td className="tabela-num">{fmtMoeda(v.valor_solicitado)}</td>
+                        <td className="tabela-num">{fmtMoeda(v.valor_final)}</td>
+                        <td>{fmtDataHora(v.criado_em)}</td>
+                      </tr>
+                      {aberto ? (
+                        <tr className="aba-vouchers__row-detalhe">
+                          <td colSpan={TABELA_VOUCHERS_COLS}>
+                            <div className="aba-vouchers__detalhe">
+                              <dl className="aba-vouchers__detalhe-grid">
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Desconto (campanha)</dt>
+                                  <dd>{fmtMoeda(v.desconto_aplicado)}</dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Litros</dt>
+                                  <dd>{fmtLitros(v.litros)}</dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Combustível</dt>
+                                  <dd>
+                                    {v.combustivel_rede_nome?.trim()
+                                      ? v.combustivel_rede_nome.trim()
+                                      : v.id_combustivel_rede
+                                        ? `— (id ${v.id_combustivel_rede})`
+                                        : "—"}
+                                  </dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Código de resgate</dt>
+                                  <dd>
+                                    <span className="aba-vouchers__codigo">{v.codigo_resgate || "—"}</span>
+                                  </dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Expira pagamento PIX</dt>
+                                  <dd>{fmtDataHora(v.expira_pagamento_em)}</dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Válido no posto até</dt>
+                                  <dd>{fmtDataHora(v.expira_resgate_em)}</dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Usado em</dt>
+                                  <dd>{fmtDataHora(v.usado_em)}</dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Posto (uso)</dt>
+                                  <dd>{v.posto_uso_nome || "—"}</dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>ID da compra</dt>
+                                  <dd>
+                                    <span className="aba-vouchers__codigo">{v.id || "—"}</span>
+                                  </dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Cliente (usuário)</dt>
+                                  <dd>
+                                    <span className="aba-vouchers__codigo">{v.usuario_id || "—"}</span>
+                                  </dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Campanha (id)</dt>
+                                  <dd>
+                                    <span className="aba-vouchers__codigo">
+                                      {v.id_campanha || "—"}
+                                    </span>
+                                  </dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Atualizado em</dt>
+                                  <dd>{fmtDataHora(v.atualizado_em)}</dd>
+                                </div>
+                              </dl>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

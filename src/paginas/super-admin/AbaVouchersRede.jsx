@@ -4,7 +4,7 @@ import { atualizarConfigVoucherRede, listarVouchersRede } from "../../servicos/r
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 
 const LIMITE_LISTA = 40;
-const TABELA_VOUCHERS_COLS = 7;
+const TABELA_VOUCHERS_COLS = 8;
 
 const FILTROS_STATUS = [
   { value: "", label: "Todos os status" },
@@ -80,6 +80,19 @@ function rotuloTipoCompra(tipo) {
     return "Por unidade";
   }
   return "Por valor";
+}
+
+/** Quem registrou uso do voucher no app (frentista / gerente / gestor). */
+function textoOperadorBaixa(v) {
+  const nome = v.operador_nome_snapshot?.trim();
+  if (!nome) {
+    return "—";
+  }
+  const papel = v.operador_papel?.trim();
+  if (!papel) {
+    return nome;
+  }
+  return `${nome} (${String(papel).replaceAll("_", " ")})`;
 }
 
 export default function AbaVouchersRede({ rede, onSalvo }) {
@@ -342,6 +355,7 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
                   <th className="tabela-num" aria-label="Expandir detalhes" />
                   <th>Status</th>
                   <th>Cliente</th>
+                  <th>Frentista (baixa)</th>
                   <th>Tipo</th>
                   <th className="tabela-num">Total pedido</th>
                   <th className="tabela-num">Pago (PIX)</th>
@@ -374,6 +388,14 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
                         </td>
                         <td>
                           <strong className="tabela-celula__principal">{v.cliente_nome_completo || "—"}</strong>
+                        </td>
+                        <td>
+                          <span className="tabela-celula__principal">{textoOperadorBaixa(v)}</span>
+                          {v.status === "USADO" && v.operador_usuario_id ? (
+                            <div className="tabela-redes__sub" title="ID do usuário que deu baixa">
+                              {v.operador_usuario_id}
+                            </div>
+                          ) : null}
                         </td>
                         <td>
                           <span className="tabela-celula__principal">{rotuloTipoCompra(v.tipo_compra)}</span>
@@ -427,7 +449,21 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
                                   <dd>{fmtDataHora(v.usado_em)}</dd>
                                 </div>
                                 <div className="aba-vouchers__detalhe-item">
-                                  <dt>Posto (uso)</dt>
+                                  <dt>Frentista ou responsável (baixa)</dt>
+                                  <dd>
+                                    {textoOperadorBaixa(v)}
+                                    {v.operador_usuario_id ? (
+                                      <>
+                                        {" "}
+                                        <span className="aba-vouchers__codigo" title="ID do usuário que registrou a baixa">
+                                          {v.operador_usuario_id}
+                                        </span>
+                                      </>
+                                    ) : null}
+                                  </dd>
+                                </div>
+                                <div className="aba-vouchers__detalhe-item">
+                                  <dt>Posto (cadastro)</dt>
                                   <dd>{v.posto_uso_nome || "—"}</dd>
                                 </div>
                                 <div className="aba-vouchers__detalhe-item">

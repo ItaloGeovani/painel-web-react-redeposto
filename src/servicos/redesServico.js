@@ -149,6 +149,35 @@ export async function atualizarConfigVoucherRede(payload) {
   return dados?.rede;
 }
 
+/** Lista compras de voucher (PIX) da rede — super-admin informa id_rede; gestor/gerente/frentista usam o token. */
+export async function listarVouchersRede({ redeId, limite = 40, offset = 0, status = "" } = {}) {
+  const params = new URLSearchParams();
+  params.set("limite", String(limite));
+  params.set("offset", String(offset));
+  if (status) {
+    params.set("status", status);
+  }
+  let caminho;
+  if (superAdminLogado()) {
+    if (!redeId) {
+      throw new Error("id da rede obrigatorio.");
+    }
+    params.set("id_rede", redeId);
+    caminho = `/v1/admin/redes/dev/vouchers/listar?${params}`;
+  } else {
+    const prefixo = prefixoApiRedeGestorOuGerente();
+    if (!prefixo) {
+      throw new Error("Operacao disponivel apenas para gestor, gerente de posto ou frentista.");
+    }
+    caminho = `${prefixo}/vouchers/listar?${params}`;
+  }
+  const dados = await requestAutenticada(caminho, { method: "GET" });
+  return {
+    itens: Array.isArray(dados?.itens) ? dados.itens : [],
+    total: Number(dados?.total ?? 0)
+  };
+}
+
 /** Modulos opcionais do app (Indique e ganhe, check-in, gire e ganhe, redes sociais). Gestor ou super-admin. */
 export async function atualizarAppModulosRede(payload) {
   if (gerentePostoLogado() || frentistaLogado()) {

@@ -907,7 +907,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 52rem;
+  max-width: min(100%, 76rem);
 }
 
 .aba-vouchers__config-primeiro {
@@ -937,6 +937,99 @@ body {
   color: #64748b;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.aba-vouchers__lista-secao {
+  margin-top: 8px;
+}
+
+.aba-vouchers__lista-titulo {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.aba-vouchers__lista-nome {
+  font-weight: 600;
+  color: #334155;
+}
+
+.aba-vouchers__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 14px;
+}
+
+.aba-vouchers__filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+}
+
+.aba-vouchers__filtro-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.aba-vouchers__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.aba-vouchers__pager-info {
+  font-size: 13px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.aba-vouchers__tabela-wrap {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+
+.aba-vouchers__codigo {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.aba-vouchers__status {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.aba-vouchers__status--pendente {
+  background: #fef3c7;
+  color: #92400e;
+}
+.aba-vouchers__status--ativo {
+  background: #dcfce7;
+  color: #166534;
+}
+.aba-vouchers__status--usado {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.aba-vouchers__status--expirado {
+  background: #f1f5f9;
+  color: #475569;
+}
+.aba-vouchers__status--cancelado {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .aba-vouchers__doc-card {

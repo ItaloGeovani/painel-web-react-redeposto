@@ -7,6 +7,7 @@ import { criarUsuarioEquipe, editarUsuarioEquipe, listarUsuariosRede } from "../
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import GestoresRedeGestaoSecao from "./GestoresRedeGestaoSecao";
 import CampanhaDescricaoEditor from "../../componentes/CampanhaDescricaoEditor";
+import CampoComAjuda, { CampoHint, CampoSecaoTitulo } from "../../componentes/CampoComAjuda";
 import AbaCarteiraRede from "./AbaCarteiraRede";
 import AbaVouchersRede from "./AbaVouchersRede";
 import AbaAppMovelRede from "./AbaAppMovelRede";
@@ -62,6 +63,7 @@ const estadoInicialCampanha = {
   vigencia_inicio: "",
   vigencia_fim: "",
   status: "ATIVA",
+  tipo_beneficio: "DESCONTO",
   canal: "app",
   modalidade_desconto: "NENHUM",
   base_desconto: "VALOR_COMPRA",
@@ -125,12 +127,24 @@ function rotuloBaseDesconto(b) {
   }
 }
 
-function resumoDescontoCampanha(c) {
+function normalizarTipoBeneficioCampanha(c) {
+  return String(c?.tipo_beneficio || "DESCONTO").trim().toUpperCase() === "CASHBACK" ? "CASHBACK" : "DESCONTO";
+}
+
+function rotuloTipoBeneficioCampanha(c) {
+  return normalizarTipoBeneficioCampanha(c) === "CASHBACK" ? "Cashback" : "Desconto";
+}
+
+function resumoBeneficioCampanha(c) {
   if (!c.modalidade_desconto || c.modalidade_desconto === "NENHUM") {
     return "Sem desconto";
   }
+  const tipoBeneficio = normalizarTipoBeneficioCampanha(c);
   const base = rotuloBaseDesconto(c.base_desconto);
   if (c.modalidade_desconto === "PERCENTUAL") {
+    if (tipoBeneficio === "CASHBACK") {
+      return `${c.valor_desconto}% de cashback (${base})`;
+    }
     return `${c.valor_desconto}% (${base})`;
   }
   if (c.modalidade_desconto === "VALOR_FIXO") {
@@ -520,49 +534,79 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
       {mostrarForm ? (
         <form className="form-rede form-rede--equipe" onSubmit={onSubmitEquipe}>
           <div className="form-rede__grid">
-            <select
-              className="campo__input"
-              value={form.papel}
-              onChange={(e) => setForm((prev) => ({ ...prev, papel: e.target.value }))}
+            <CampoComAjuda
+              rotulo="Perfil"
+              dica="Define as permissões: frentista ou gerente do posto."
             >
-              <option value="frentista">Frentista</option>
-              <option value="gerente_posto">Gerente de posto</option>
-            </select>
-            <input
-              className="campo__input"
-              placeholder="Nome completo"
-              value={form.nome}
-              onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              type="email"
-              placeholder="Email"
-              value={form.email}
-              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Telefone"
-              value={form.telefone}
-              onChange={(e) => setForm((prev) => ({ ...prev, telefone: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Senha (min. 6 caracteres)"
-              value={form.senha}
-              onChange={(e) => setForm((prev) => ({ ...prev, senha: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Confirmar senha"
-              value={form.confirmar_senha}
-              onChange={(e) => setForm((prev) => ({ ...prev, confirmar_senha: e.target.value }))}
-            />
+              <select
+                className="campo__input"
+                value={form.papel}
+                onChange={(e) => setForm((prev) => ({ ...prev, papel: e.target.value }))}
+              >
+                <option value="frentista">Frentista</option>
+                <option value="gerente_posto">Gerente de posto</option>
+              </select>
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Nome completo"
+              dica="Nome do colaborador exibido no painel e relatórios."
+            >
+              <input
+                className="campo__input"
+                placeholder="Nome completo"
+                value={form.nome}
+                onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Email"
+              dica="Email de acesso ao painel para esse usuário."
+            >
+              <input
+                className="campo__input"
+                type="email"
+                placeholder="Email"
+                value={form.email}
+                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Telefone"
+              dica="Contato do colaborador (opcional)."
+            >
+              <input
+                className="campo__input"
+                placeholder="Telefone"
+                value={form.telefone}
+                onChange={(e) => setForm((prev) => ({ ...prev, telefone: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Senha"
+              dica="Senha inicial de acesso (mínimo de 6 caracteres)."
+            >
+              <input
+                className="campo__input"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Senha (min. 6 caracteres)"
+                value={form.senha}
+                onChange={(e) => setForm((prev) => ({ ...prev, senha: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Confirmar senha"
+              dica="Repita a senha para evitar erro de digitação."
+            >
+              <input
+                className="campo__input"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Confirmar senha"
+                value={form.confirmar_senha}
+                onChange={(e) => setForm((prev) => ({ ...prev, confirmar_senha: e.target.value }))}
+              />
+            </CampoComAjuda>
           </div>
           <div className="form-rede__acoes">
             <button className="botao-primario" type="submit" disabled={salvando}>
@@ -689,97 +733,141 @@ export function AbaPostos({ redeId }) {
             deve ter 14 digitos; CEP, 8 digitos; logo deve ser URL http(s) valida.
           </p>
           <div className="form-rede__grid">
-            <input
-              className="campo__input"
-              placeholder="Nome / razao social da unidade"
-              value={formPosto.nome}
-              onChange={(e) => setFormPosto((p) => ({ ...p, nome: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Codigo interno (unico na rede)"
-              value={formPosto.codigo}
-              onChange={(e) => setFormPosto((p) => ({ ...p, codigo: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Nome fantasia"
-              value={formPosto.nome_fantasia}
-              onChange={(e) => setFormPosto((p) => ({ ...p, nome_fantasia: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="CNPJ (14 digitos)"
-              inputMode="numeric"
-              value={formPosto.cnpj}
-              onChange={(e) => setFormPosto((p) => ({ ...p, cnpj: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Rua / logradouro"
-              value={formPosto.rua}
-              onChange={(e) => setFormPosto((p) => ({ ...p, rua: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Numero"
-              value={formPosto.numero}
-              onChange={(e) => setFormPosto((p) => ({ ...p, numero: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Bairro"
-              value={formPosto.bairro}
-              onChange={(e) => setFormPosto((p) => ({ ...p, bairro: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Complemento"
-              value={formPosto.complemento}
-              onChange={(e) => setFormPosto((p) => ({ ...p, complemento: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="CEP (8 digitos)"
-              inputMode="numeric"
-              value={formPosto.cep}
-              onChange={(e) => setFormPosto((p) => ({ ...p, cep: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Cidade"
-              value={formPosto.cidade}
-              onChange={(e) => setFormPosto((p) => ({ ...p, cidade: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="UF"
-              maxLength={2}
-              value={formPosto.estado}
-              onChange={(e) => setFormPosto((p) => ({ ...p, estado: e.target.value.toUpperCase() }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Telefone"
-              inputMode="tel"
-              value={formPosto.telefone}
-              onChange={(e) => setFormPosto((p) => ({ ...p, telefone: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="E-mail de contato"
-              type="email"
-              autoComplete="email"
-              value={formPosto.email_contato}
-              onChange={(e) => setFormPosto((p) => ({ ...p, email_contato: e.target.value }))}
-            />
-            <input
-              className="campo__input form-rede__input-span2"
-              placeholder="URL do logo (https://...)"
-              type="url"
-              value={formPosto.logo_url}
-              onChange={(e) => setFormPosto((p) => ({ ...p, logo_url: e.target.value }))}
-            />
+            <CampoComAjuda
+              rotulo="Nome da unidade"
+              dica="Nome oficial do posto (obrigatório)."
+            >
+              <input
+                className="campo__input"
+                placeholder="Nome / razao social da unidade"
+                value={formPosto.nome}
+                onChange={(e) => setFormPosto((p) => ({ ...p, nome: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Codigo interno"
+              dica="Código único do posto dentro da rede."
+            >
+              <input
+                className="campo__input"
+                placeholder="Codigo interno (unico na rede)"
+                value={formPosto.codigo}
+                onChange={(e) => setFormPosto((p) => ({ ...p, codigo: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Nome fantasia"
+              dica="Nome comercial exibido ao cliente."
+            >
+              <input
+                className="campo__input"
+                placeholder="Nome fantasia"
+                value={formPosto.nome_fantasia}
+                onChange={(e) => setFormPosto((p) => ({ ...p, nome_fantasia: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="CNPJ"
+              dica="CNPJ da unidade com 14 dígitos (opcional)."
+            >
+              <input
+                className="campo__input"
+                placeholder="CNPJ (14 digitos)"
+                inputMode="numeric"
+                value={formPosto.cnpj}
+                onChange={(e) => setFormPosto((p) => ({ ...p, cnpj: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Rua" dica="Logradouro da unidade.">
+              <input
+                className="campo__input"
+                placeholder="Rua / logradouro"
+                value={formPosto.rua}
+                onChange={(e) => setFormPosto((p) => ({ ...p, rua: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Numero" dica="Número do endereço.">
+              <input
+                className="campo__input"
+                placeholder="Numero"
+                value={formPosto.numero}
+                onChange={(e) => setFormPosto((p) => ({ ...p, numero: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Bairro" dica="Bairro do posto.">
+              <input
+                className="campo__input"
+                placeholder="Bairro"
+                value={formPosto.bairro}
+                onChange={(e) => setFormPosto((p) => ({ ...p, bairro: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Complemento" dica="Informações extras do endereço (opcional).">
+              <input
+                className="campo__input"
+                placeholder="Complemento"
+                value={formPosto.complemento}
+                onChange={(e) => setFormPosto((p) => ({ ...p, complemento: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="CEP" dica="CEP com 8 dígitos (opcional).">
+              <input
+                className="campo__input"
+                placeholder="CEP (8 digitos)"
+                inputMode="numeric"
+                value={formPosto.cep}
+                onChange={(e) => setFormPosto((p) => ({ ...p, cep: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Cidade" dica="Cidade da unidade.">
+              <input
+                className="campo__input"
+                placeholder="Cidade"
+                value={formPosto.cidade}
+                onChange={(e) => setFormPosto((p) => ({ ...p, cidade: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="UF" dica="Sigla do estado com 2 letras.">
+              <input
+                className="campo__input"
+                placeholder="UF"
+                maxLength={2}
+                value={formPosto.estado}
+                onChange={(e) => setFormPosto((p) => ({ ...p, estado: e.target.value.toUpperCase() }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Telefone" dica="Telefone de contato da unidade (opcional).">
+              <input
+                className="campo__input"
+                placeholder="Telefone"
+                inputMode="tel"
+                value={formPosto.telefone}
+                onChange={(e) => setFormPosto((p) => ({ ...p, telefone: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Email de contato" dica="Email comercial do posto (opcional).">
+              <input
+                className="campo__input"
+                placeholder="E-mail de contato"
+                type="email"
+                autoComplete="email"
+                value={formPosto.email_contato}
+                onChange={(e) => setFormPosto((p) => ({ ...p, email_contato: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Logo"
+              dica="URL pública da logo da unidade (http/https)."
+              span2
+            >
+              <input
+                className="campo__input"
+                placeholder="URL do logo (https://...)"
+                type="url"
+                value={formPosto.logo_url}
+                onChange={(e) => setFormPosto((p) => ({ ...p, logo_url: e.target.value }))}
+              />
+            </CampoComAjuda>
           </div>
           <div className="form-rede__acoes">
             <button className="botao-primario" type="submit" disabled={salvandoPosto}>
@@ -992,6 +1080,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       vigencia_inicio: isoParaDatetimeLocal(c.vigencia_inicio),
       vigencia_fim: isoParaDatetimeLocal(c.vigencia_fim),
       status: c.status || "ATIVA",
+      tipo_beneficio: normalizarTipoBeneficioCampanha(c),
       canal: c.valida_no_posto_fisico ? "posto_fisico" : "app",
       modalidade_desconto: c.modalidade_desconto || "NENHUM",
       base_desconto:
@@ -1032,6 +1121,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       maxUsos = n;
     }
     const valorDesc = parseFloat(String(formCampanha.valor_desconto || "").replace(",", "."));
+    const tipoBeneficio = normalizarTipoBeneficioCampanha(formCampanha);
     const parseMoney = (s) => {
       const t = String(s || "")
         .trim()
@@ -1077,6 +1167,10 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       toastErro("Campanha por litro exige desconto percentual ou valor fixo (R$ por litro).");
       return;
     }
+    if (tipoBeneficio === "CASHBACK" && (formCampanha.modalidade_desconto || "NENHUM") !== "PERCENTUAL") {
+      toastErro("Campanha com cashback exige modalidade percentual.");
+      return;
+    }
     setSalvando(true);
     try {
       const parseLit = (s) => {
@@ -1097,6 +1191,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
         vigencia_inicio: vi,
         vigencia_fim: vf,
         status: formCampanha.status || "ATIVA",
+        tipo_beneficio: tipoBeneficio,
         valida_no_app: true,
         valida_no_posto_fisico: false,
         modalidade_desconto: formCampanha.modalidade_desconto || "NENHUM",
@@ -1132,7 +1227,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
     }
   }
 
-  const colSpanTabela = somenteLeitura ? 5 : 6;
+  const colSpanTabela = somenteLeitura ? 6 : 7;
 
   return (
     <>
@@ -1144,8 +1239,9 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
         ) : (
           <>
             Canal: <strong>aplicativo</strong> (promocoes exibidas no app). Escopo de posto: <strong>toda a rede</strong>{" "}
-            ou <strong>um posto</strong>. Desconto no valor da compra: defina faixa em R$ (minimo e maximo). Desconto por
-            litro: informe so combustiveis e faixa em litros (sem minimo de compra em R$). Limite de usos por cliente
+            ou <strong>um posto</strong>. Beneficio pode ser <strong>Desconto</strong> ou <strong>Cashback</strong>. Para
+            valor da compra, defina faixa em R$ (minimo e maximo). Por litro, informe combustiveis e faixa em litros (sem
+            minimo de compra em R$). Limite de usos por cliente
             (vazio = ilimitado ate o fim da vigencia).
           </>
         )}
@@ -1172,125 +1268,221 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
 
       {!somenteLeitura && mostrarForm ? (
         <form className="form-rede form-rede--equipe" onSubmit={onSubmitCampanha}>
-          <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form">
-            Datas em horario local; a API envia em UTC (ISO8601). Sem desconto: modalidade &quot;Nenhum&quot; e valor do
-            desconto 0. Percentual: 0–100. Limite de usos: vazio = sem limite ate o fim da promocao.
-          </p>
-          <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form">
+          <CampoHint>
+            Datas em horario local; a API envia em UTC (ISO8601). Para cashback, use modalidade percentual. Sem desconto:
+            modalidade &quot;Nenhum&quot; e valor do desconto 0. Percentual: 0-100. Limite de usos: vazio = sem limite ate
+            o fim da promocao.
+          </CampoHint>
+          <CampoHint>
             <strong>Canal:</strong> aplicativo (as promocoes valem apenas no app).
-          </p>
+          </CampoHint>
           <div className="form-rede__grid">
-            <input
-              className="campo__input"
-              placeholder="Nome interno (identificacao)"
-              value={formCampanha.nome}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, nome: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Titulo (promocional)"
-              value={formCampanha.titulo}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, titulo: e.target.value }))}
-            />
-            <select
-              className="campo__input"
-              value={formCampanha.status}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, status: e.target.value }))}
-              aria-label="Status da campanha"
+            <CampoComAjuda
+              rotulo="Nome interno"
+              dica="Identificador interno da campanha no painel e relatórios."
             >
-              <option value="RASCUNHO">Rascunho</option>
-              <option value="ATIVA">Ativa</option>
-              <option value="PAUSADA">Pausada</option>
-              <option value="ARQUIVADA">Arquivada</option>
-            </select>
-            <select
-              className="campo__input"
-              value={formCampanha.id_posto}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, id_posto: e.target.value }))}
-              aria-label="Escopo do posto"
+              <input
+                className="campo__input"
+                placeholder="Nome interno (identificacao)"
+                value={formCampanha.nome}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, nome: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Titulo promocional"
+              dica="Titulo exibido para o cliente no app."
             >
-              <option value="">Todos os postos da rede</option>
-              {postos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {(p.nome_fantasia && p.nome_fantasia.trim()) || p.nome} ({p.codigo})
-                </option>
-              ))}
-            </select>
-            <select
-              className="campo__input"
-              value={formCampanha.modalidade_desconto}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, modalidade_desconto: e.target.value }))}
-              aria-label="Modalidade de desconto"
+              <input
+                className="campo__input"
+                placeholder="Titulo (promocional)"
+                value={formCampanha.titulo}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, titulo: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Status"
+              dica="Rascunho não aparece no app; Ativa aparece conforme vigência."
             >
-              <option value="NENHUM">Sem desconto (informativo)</option>
-              <option value="PERCENTUAL">Percentual</option>
-              <option value="VALOR_FIXO">Valor fixo (R$)</option>
-            </select>
-            <select
-              className="campo__input"
-              value={formCampanha.base_desconto}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, base_desconto: e.target.value }))}
-              aria-label="Base do desconto"
+              <select
+                className="campo__input"
+                value={formCampanha.status}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, status: e.target.value }))}
+                aria-label="Status da campanha"
+              >
+                <option value="RASCUNHO">Rascunho</option>
+                <option value="ATIVA">Ativa</option>
+                <option value="PAUSADA">Pausada</option>
+                <option value="ARQUIVADA">Arquivada</option>
+              </select>
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Escopo do posto"
+              dica="Defina se vale para toda a rede ou para um posto específico."
             >
-              <option value="VALOR_COMPRA">Sobre o valor da compra</option>
-              <option value="LITRO">Por litro (combustivel e faixa de litros)</option>
-            </select>
-            <input
-              className="campo__input"
-              placeholder="Valor do desconto (% ou R$ conforme modalidade)"
-              inputMode="decimal"
-              value={formCampanha.valor_desconto}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, valor_desconto: e.target.value }))}
-            />
+              <select
+                className="campo__input"
+                value={formCampanha.id_posto}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, id_posto: e.target.value }))}
+                aria-label="Escopo do posto"
+              >
+                <option value="">Todos os postos da rede</option>
+                {postos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {(p.nome_fantasia && p.nome_fantasia.trim()) || p.nome} ({p.codigo})
+                  </option>
+                ))}
+              </select>
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Tipo de beneficio"
+              dica="Desconto reduz valor da compra; Cashback credita saldo após pagamento."
+            >
+              <select
+                className="campo__input"
+                value={formCampanha.tipo_beneficio}
+                onChange={(e) =>
+                  setFormCampanha((p) => ({
+                    ...p,
+                    tipo_beneficio: e.target.value,
+                    modalidade_desconto:
+                      e.target.value === "CASHBACK"
+                        ? "PERCENTUAL"
+                        : p.modalidade_desconto || "NENHUM"
+                  }))
+                }
+                aria-label="Tipo de beneficio"
+              >
+                <option value="DESCONTO">Desconto</option>
+                <option value="CASHBACK">Cashback</option>
+              </select>
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Modalidade"
+              dica="Cashback aceita apenas percentual. Desconto pode ser percentual ou valor fixo."
+            >
+              <select
+                className="campo__input"
+                value={formCampanha.modalidade_desconto}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, modalidade_desconto: e.target.value }))}
+                aria-label="Modalidade de desconto"
+              >
+                {formCampanha.tipo_beneficio === "CASHBACK" ? (
+                  <option value="PERCENTUAL">Percentual</option>
+                ) : (
+                  <>
+                    <option value="NENHUM">Sem desconto (informativo)</option>
+                    <option value="PERCENTUAL">Percentual</option>
+                    <option value="VALOR_FIXO">Valor fixo (R$)</option>
+                  </>
+                )}
+              </select>
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Base do beneficio"
+              dica="Sobre o valor da compra (R$) ou por litro (combustíveis)."
+            >
+              <select
+                className="campo__input"
+                value={formCampanha.base_desconto}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, base_desconto: e.target.value }))}
+                aria-label="Base do desconto"
+              >
+                <option value="VALOR_COMPRA">Sobre o valor da compra</option>
+                <option value="LITRO">Por litro (combustivel e faixa de litros)</option>
+              </select>
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Valor"
+              dica="Percentual (%) ou valor em R$ conforme modalidade escolhida."
+            >
+              <input
+                className="campo__input"
+                placeholder={
+                  formCampanha.tipo_beneficio === "CASHBACK"
+                    ? "Percentual de cashback (%)"
+                    : "Valor do desconto (% ou R$ conforme modalidade)"
+                }
+                inputMode="decimal"
+                value={formCampanha.valor_desconto}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, valor_desconto: e.target.value }))}
+              />
+            </CampoComAjuda>
             {formCampanha.base_desconto === "VALOR_COMPRA" ? (
               <>
-                <input
-                  className="campo__input"
-                  placeholder="Valor minimo da compra (R$)"
-                  inputMode="decimal"
-                  value={formCampanha.valor_minimo_compra}
-                  onChange={(e) => setFormCampanha((p) => ({ ...p, valor_minimo_compra: e.target.value }))}
-                  aria-label="Valor minimo da compra"
-                />
-                <input
-                  className="campo__input"
-                  placeholder="Valor maximo da compra (R$)"
-                  inputMode="decimal"
-                  value={formCampanha.valor_maximo_compra}
-                  onChange={(e) => setFormCampanha((p) => ({ ...p, valor_maximo_compra: e.target.value }))}
-                  aria-label="Valor maximo da compra"
-                />
+                <CampoComAjuda
+                  rotulo="Valor minimo da compra"
+                  dica="Compra mínima em R$ para liberar o benefício."
+                >
+                  <input
+                    className="campo__input"
+                    placeholder="Valor minimo da compra (R$)"
+                    inputMode="decimal"
+                    value={formCampanha.valor_minimo_compra}
+                    onChange={(e) => setFormCampanha((p) => ({ ...p, valor_minimo_compra: e.target.value }))}
+                    aria-label="Valor minimo da compra"
+                  />
+                </CampoComAjuda>
+                <CampoComAjuda
+                  rotulo="Valor maximo da compra"
+                  dica="Teto em R$ para aplicar o benefício nessa campanha."
+                >
+                  <input
+                    className="campo__input"
+                    placeholder="Valor maximo da compra (R$)"
+                    inputMode="decimal"
+                    value={formCampanha.valor_maximo_compra}
+                    onChange={(e) => setFormCampanha((p) => ({ ...p, valor_maximo_compra: e.target.value }))}
+                    aria-label="Valor maximo da compra"
+                  />
+                </CampoComAjuda>
               </>
             ) : null}
-            <input
-              className="campo__input"
-              placeholder="Max usos por cliente (vazio = ilimitado)"
-              inputMode="numeric"
-              value={formCampanha.max_usos_por_cliente}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, max_usos_por_cliente: e.target.value }))}
-            />
+            <CampoComAjuda
+              rotulo="Limite de usos por cliente"
+              dica="Vazio = ilimitado. Se informado, deve ser inteiro >= 1."
+            >
+              <input
+                className="campo__input"
+                placeholder="Max usos por cliente (vazio = ilimitado)"
+                inputMode="numeric"
+                value={formCampanha.max_usos_por_cliente}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, max_usos_por_cliente: e.target.value }))}
+              />
+            </CampoComAjuda>
             {formCampanha.base_desconto === "LITRO" ? (
               <>
-                <input
-                  className="campo__input"
-                  placeholder="Litros minimos (inclusive)"
-                  inputMode="decimal"
-                  value={formCampanha.litros_min}
-                  onChange={(e) => setFormCampanha((p) => ({ ...p, litros_min: e.target.value }))}
-                  aria-label="Litros minimos"
-                />
-                <input
-                  className="campo__input"
-                  placeholder="Litros maximos (inclusive)"
-                  inputMode="decimal"
-                  value={formCampanha.litros_max}
-                  onChange={(e) => setFormCampanha((p) => ({ ...p, litros_max: e.target.value }))}
-                  aria-label="Litros maximos"
-                />
+                <CampoComAjuda
+                  rotulo="Litros minimos"
+                  dica="Quantidade mínima de litros para aplicar a regra por litro."
+                >
+                  <input
+                    className="campo__input"
+                    placeholder="Litros minimos (inclusive)"
+                    inputMode="decimal"
+                    value={formCampanha.litros_min}
+                    onChange={(e) => setFormCampanha((p) => ({ ...p, litros_min: e.target.value }))}
+                    aria-label="Litros minimos"
+                  />
+                </CampoComAjuda>
+                <CampoComAjuda
+                  rotulo="Litros maximos"
+                  dica="Quantidade máxima de litros para aplicar a regra por litro."
+                >
+                  <input
+                    className="campo__input"
+                    placeholder="Litros maximos (inclusive)"
+                    inputMode="decimal"
+                    value={formCampanha.litros_max}
+                    onChange={(e) => setFormCampanha((p) => ({ ...p, litros_max: e.target.value }))}
+                    aria-label="Litros maximos"
+                  />
+                </CampoComAjuda>
                 <div className="form-rede__input-span2 form-rede--comb-campanha">
-                  <span className="form-rede__titulo-aux" id="label-comb-campanha">
-                    Combustiveis validos (preco por litro vem do cadastro da rede)
-                  </span>
+                  <CampoSecaoTitulo
+                    id="label-comb-campanha"
+                    rotulo="Combustiveis validos (preco por litro vem do cadastro da rede)"
+                    dica="Selecione os combustíveis em que a campanha por litro pode ser aplicada."
+                  />
                   {combustiveisRede.filter((x) => x && x.ativo).length === 0 ? (
                     <p className="rede-detalhes__ajuda">
                       Nenhum combustivel ativo. Cadastre em <strong>Combustiveis</strong> antes de criar a campanha.
@@ -1314,29 +1506,47 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
                 </div>
               </>
             ) : null}
-            <input
-              className="campo__input"
-              type="datetime-local"
-              value={formCampanha.vigencia_inicio}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, vigencia_inicio: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              type="datetime-local"
-              value={formCampanha.vigencia_fim}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, vigencia_fim: e.target.value }))}
-            />
-            <input
-              className="campo__input form-rede__input-span2"
-              placeholder="URL da imagem (https://...)"
-              type="url"
-              value={formCampanha.imagem_url}
-              onChange={(e) => setFormCampanha((p) => ({ ...p, imagem_url: e.target.value }))}
-            />
+            <CampoComAjuda
+              rotulo="Inicio da vigencia"
+              dica="Data/hora local de início da campanha."
+            >
+              <input
+                className="campo__input"
+                type="datetime-local"
+                value={formCampanha.vigencia_inicio}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, vigencia_inicio: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Fim da vigencia"
+              dica="Data/hora local de término da campanha."
+            >
+              <input
+                className="campo__input"
+                type="datetime-local"
+                value={formCampanha.vigencia_fim}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, vigencia_fim: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Imagem"
+              dica="URL pública da imagem da campanha (http/https)."
+              span2
+            >
+              <input
+                className="campo__input"
+                placeholder="URL da imagem (https://...)"
+                type="url"
+                value={formCampanha.imagem_url}
+                onChange={(e) => setFormCampanha((p) => ({ ...p, imagem_url: e.target.value }))}
+              />
+            </CampoComAjuda>
             <div className="form-rede__input-span2 campanha-descricao-editor-wrap">
-              <span className="form-rede__titulo-aux" id="label-campanha-descricao">
-                Descricao e regras (HTML)
-              </span>
+              <CampoSecaoTitulo
+                id="label-campanha-descricao"
+                rotulo="Descricao e regras (HTML)"
+                dica="Texto rico exibido ao cliente com regras e condições da campanha."
+              />
               <CampanhaDescricaoEditor
                 value={formCampanha.descricao}
                 onChange={(html) => setFormCampanha((p) => ({ ...p, descricao: html }))}
@@ -1370,6 +1580,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
               <th className="tabela-redes__th-expand" scope="col" aria-label="Mais detalhes" />
               <th>Promocao</th>
               <th>Canais</th>
+              <th>Beneficio</th>
               <th>Vigencia</th>
               <th>Status</th>
               {somenteLeitura ? null : <th>Acoes</th>}
@@ -1405,6 +1616,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
                       ) : null}
                     </td>
                     <td>{rotuloCanaisCampanha(c)}</td>
+                    <td>{rotuloTipoBeneficioCampanha(c)}</td>
                     <td className="tabela-celula--stack tabela-campanha__col-vigencia">
                       {c.vigencia_inicio ? new Date(c.vigencia_inicio).toLocaleString() : "—"}
                       <span className="tabela-celula__sub">
@@ -1441,9 +1653,9 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
                             </span>
                           </div>
                           <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
-                            <span className="tabela-redes__detalhe-label">Desconto</span>
+                            <span className="tabela-redes__detalhe-label">Beneficio</span>
                             <span className="tabela-redes__detalhe-valor">
-                              {resumoDescontoCampanha(c)}
+                              {rotuloTipoBeneficioCampanha(c)} - {resumoBeneficioCampanha(c)}
                               {c.modalidade_desconto && c.modalidade_desconto !== "NENHUM" ? (
                                 <span className="tabela-celula__sub"> — {rotuloBaseDesconto(c.base_desconto)}</span>
                               ) : null}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { atualizarMoedaVirtualRede } from "../../servicos/redesServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import CampoComAjuda from "../../componentes/CampoComAjuda";
 
 export default function AbaCarteiraRede({ rede, onSalvo, somenteLeituraMoeda = false }) {
   const [nome, setNome] = useState("");
@@ -24,20 +25,31 @@ export default function AbaCarteiraRede({ rede, onSalvo, somenteLeituraMoeda = f
           Visao da moeda virtual da rede. A cotacao indica quantas unidades correspondem a <strong>R$ 1,00</strong>.
         </p>
         <div className="form-rede__grid">
-          <input
-            className="campo__input form-rede__input-span2"
-            value={nome}
-            readOnly
-            disabled
-            aria-label="Nome da moeda virtual"
-          />
-          <input
-            className="campo__input"
-            value={cotacao}
-            readOnly
-            disabled
-            aria-label="Cotacao: unidades por real"
-          />
+          <CampoComAjuda
+            rotulo="Nome da moeda"
+            dica="Nome exibido ao cliente para os pontos/saldo da rede."
+            span2
+          >
+            <input
+              className="campo__input"
+              value={nome}
+              readOnly
+              disabled
+              aria-label="Nome da moeda virtual"
+            />
+          </CampoComAjuda>
+          <CampoComAjuda
+            rotulo="Cotacao"
+            dica="Quantas unidades da moeda equivalem a R$ 1,00."
+          >
+            <input
+              className="campo__input"
+              value={cotacao}
+              readOnly
+              disabled
+              aria-label="Cotacao: unidades por real"
+            />
+          </CampoComAjuda>
         </div>
         <p className="rede-detalhes__ajuda" style={{ marginTop: 12 }}>
           Somente o gestor da rede pode alterar nome e cotacao da moeda.
@@ -82,21 +94,32 @@ export default function AbaCarteiraRede({ rede, onSalvo, somenteLeituraMoeda = f
       </p>
       <form className="form-rede form-rede--equipe" onSubmit={onSubmit}>
         <div className="form-rede__grid">
-          <input
-            className="campo__input form-rede__input-span2"
-            placeholder="Nome da moeda (ex.: NioCoins)"
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            aria-label="Nome da moeda virtual"
-          />
-          <input
-            className="campo__input"
-            placeholder="Unidades por R$ 1,00"
-            inputMode="decimal"
-            value={cotacao}
-            onChange={(e) => setCotacao(e.target.value)}
-            aria-label="Cotacao: unidades por real"
-          />
+          <CampoComAjuda
+            rotulo="Nome da moeda"
+            dica="Exemplo: NioCoins. Esse nome aparece para o cliente no app."
+            span2
+          >
+            <input
+              className="campo__input"
+              placeholder="Nome da moeda (ex.: NioCoins)"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              aria-label="Nome da moeda virtual"
+            />
+          </CampoComAjuda>
+          <CampoComAjuda
+            rotulo="Unidades por R$ 1,00"
+            dica="Define conversão de dinheiro para moeda virtual da rede."
+          >
+            <input
+              className="campo__input"
+              placeholder="Unidades por R$ 1,00"
+              inputMode="decimal"
+              value={cotacao}
+              onChange={(e) => setCotacao(e.target.value)}
+              aria-label="Cotacao: unidades por real"
+            />
+          </CampoComAjuda>
         </div>
         <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form">
           Movimentacoes detalhadas (saldos por cliente, historico, conciliacao) entram em etapas futuras; aqui fica a

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { criarPremioRede, editarPremioRede, listarPremiosRede } from "../../servicos/premiosServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import { datetimeLocalParaIso, isoParaDatetimeLocal } from "../../util/dataHoraLocal";
+import CampoComAjuda, { TooltipInfo } from "../../componentes/CampoComAjuda";
 
 const estadoInicialPremio = {
   titulo: "",
@@ -169,33 +170,55 @@ export default function AbaPremiosRede({ redeId }) {
             Datas em horario local; a API envia UTC (ISO8601). Imagem: URL https opcional.
           </p>
           <div className="form-rede__grid">
-            <input
-              className="campo__input form-rede__input-span2"
-              placeholder="Titulo do premio"
-              value={form.titulo}
-              onChange={(e) => setForm((p) => ({ ...p, titulo: e.target.value }))}
-            />
-            <input
-              className="campo__input form-rede__input-span2"
-              placeholder="URL da imagem (https://...)"
-              type="url"
-              value={form.imagem_url}
-              onChange={(e) => setForm((p) => ({ ...p, imagem_url: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Valor em moeda da rede"
-              inputMode="decimal"
-              value={form.valor_moeda}
-              onChange={(e) => setForm((p) => ({ ...p, valor_moeda: e.target.value }))}
-            />
-            <input
-              className="campo__input"
-              placeholder="Quantidade (vazio = ilimitada)"
-              inputMode="numeric"
-              value={form.quantidade}
-              onChange={(e) => setForm((p) => ({ ...p, quantidade: e.target.value }))}
-            />
+            <CampoComAjuda
+              rotulo="Titulo"
+              dica="Nome do prêmio exibido ao cliente."
+              span2
+            >
+              <input
+                className="campo__input"
+                placeholder="Titulo do premio"
+                value={form.titulo}
+                onChange={(e) => setForm((p) => ({ ...p, titulo: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Imagem"
+              dica="URL pública da imagem do prêmio (http/https)."
+              span2
+            >
+              <input
+                className="campo__input"
+                placeholder="URL da imagem (https://...)"
+                type="url"
+                value={form.imagem_url}
+                onChange={(e) => setForm((p) => ({ ...p, imagem_url: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Valor em moeda"
+              dica="Quantidade de moeda virtual necessária para resgate."
+            >
+              <input
+                className="campo__input"
+                placeholder="Valor em moeda da rede"
+                inputMode="decimal"
+                value={form.valor_moeda}
+                onChange={(e) => setForm((p) => ({ ...p, valor_moeda: e.target.value }))}
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Quantidade"
+              dica="Vazio significa estoque ilimitado."
+            >
+              <input
+                className="campo__input"
+                placeholder="Quantidade (vazio = ilimitada)"
+                inputMode="numeric"
+                value={form.quantidade}
+                onChange={(e) => setForm((p) => ({ ...p, quantidade: e.target.value }))}
+              />
+            </CampoComAjuda>
             <label className="form-rede__checkbox-linha">
               <input
                 type="checkbox"
@@ -203,22 +226,33 @@ export default function AbaPremiosRede({ redeId }) {
                 onChange={(e) => setForm((p) => ({ ...p, ativo: e.target.checked }))}
               />
               Premio ativo (visivel para resgate quando dentro da vigencia)
+              <TooltipInfo texto="Se desmarcado, o prêmio não aparece para resgate no app." />
             </label>
-            <input
-              className="campo__input"
-              type="datetime-local"
-              value={form.vigencia_inicio}
-              onChange={(e) => setForm((p) => ({ ...p, vigencia_inicio: e.target.value }))}
-              aria-label="Inicio da vigencia"
-            />
-            <input
-              className="campo__input"
-              type="datetime-local"
-              value={form.sem_fim ? "" : form.vigencia_fim}
-              onChange={(e) => setForm((p) => ({ ...p, vigencia_fim: e.target.value }))}
-              disabled={form.sem_fim}
-              aria-label="Fim da vigencia"
-            />
+            <CampoComAjuda
+              rotulo="Inicio da vigencia"
+              dica="Data/hora local em que o prêmio passa a valer."
+            >
+              <input
+                className="campo__input"
+                type="datetime-local"
+                value={form.vigencia_inicio}
+                onChange={(e) => setForm((p) => ({ ...p, vigencia_inicio: e.target.value }))}
+                aria-label="Inicio da vigencia"
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Fim da vigencia"
+              dica="Data/hora local em que o prêmio deixa de valer."
+            >
+              <input
+                className="campo__input"
+                type="datetime-local"
+                value={form.sem_fim ? "" : form.vigencia_fim}
+                onChange={(e) => setForm((p) => ({ ...p, vigencia_fim: e.target.value }))}
+                disabled={form.sem_fim}
+                aria-label="Fim da vigencia"
+              />
+            </CampoComAjuda>
             <label className="form-rede__checkbox-linha">
               <input
                 type="checkbox"
@@ -226,6 +260,7 @@ export default function AbaPremiosRede({ redeId }) {
                 onChange={(e) => setForm((p) => ({ ...p, sem_fim: e.target.checked }))}
               />
               Sem data fim de vigencia
+              <TooltipInfo texto="Ao marcar, o prêmio fica sem data limite final." />
             </label>
           </div>
           <div className="form-rede__acoes">

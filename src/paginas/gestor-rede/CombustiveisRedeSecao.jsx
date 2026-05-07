@@ -6,6 +6,7 @@ import {
   listarCombustiveisRede
 } from "../../servicos/combustiveisRedeServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import CampoComAjuda, { TooltipInfo } from "../../componentes/CampoComAjuda";
 
 const formVazio = {
   nome: "",
@@ -191,45 +192,72 @@ export default function CombustiveisRedeSecao() {
           <h3 style={{ marginTop: 0, fontSize: "1.05rem" }}>{editandoId ? "Editar combustivel" : "Novo combustivel"}</h3>
           <form className="form-rede form-rede--equipe" onSubmit={onSubmit}>
             <div className="form-rede__grid">
-              <input
-                className="campo__input form-rede__input-span2"
-                placeholder="Nome (ex.: Gasolina comum)"
-                value={form.nome}
-                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-                required
-                aria-label="Nome"
-              />
-              <input
-                className="campo__input"
-                placeholder="Codigo (opcional, unico na rede)"
-                value={form.codigo}
-                onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value }))}
-                aria-label="Codigo"
-              />
-              <input
-                className="campo__input"
-                placeholder="Ordem (exibicao)"
-                value={form.ordem}
-                onChange={(e) => setForm((f) => ({ ...f, ordem: e.target.value }))}
-                inputMode="numeric"
-                aria-label="Ordem"
-              />
-              <input
-                className="campo__input form-rede__input-span2"
-                placeholder="Descricao (opcional)"
-                value={form.descricao}
-                onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
-                aria-label="Descricao"
-              />
-              <input
-                className="campo__input"
-                placeholder="Preco por litro (R$)"
-                value={form.preco_por_litro}
-                onChange={(e) => setForm((f) => ({ ...f, preco_por_litro: e.target.value }))}
-                inputMode="decimal"
-                required
-                aria-label="Preco por litro"
-              />
+              <CampoComAjuda
+                rotulo="Nome"
+                dica="Nome do combustível exibido no app e no painel."
+                span2
+              >
+                <input
+                  className="campo__input"
+                  placeholder="Nome (ex.: Gasolina comum)"
+                  value={form.nome}
+                  onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                  required
+                  aria-label="Nome"
+                />
+              </CampoComAjuda>
+              <CampoComAjuda
+                rotulo="Codigo"
+                dica="Código opcional e único dentro da rede."
+              >
+                <input
+                  className="campo__input"
+                  placeholder="Codigo (opcional, unico na rede)"
+                  value={form.codigo}
+                  onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value }))}
+                  aria-label="Codigo"
+                />
+              </CampoComAjuda>
+              <CampoComAjuda
+                rotulo="Ordem"
+                dica="Define a ordem de exibição na lista."
+              >
+                <input
+                  className="campo__input"
+                  placeholder="Ordem (exibicao)"
+                  value={form.ordem}
+                  onChange={(e) => setForm((f) => ({ ...f, ordem: e.target.value }))}
+                  inputMode="numeric"
+                  aria-label="Ordem"
+                />
+              </CampoComAjuda>
+              <CampoComAjuda
+                rotulo="Descricao"
+                dica="Texto opcional para detalhar o combustível."
+                span2
+              >
+                <input
+                  className="campo__input"
+                  placeholder="Descricao (opcional)"
+                  value={form.descricao}
+                  onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+                  aria-label="Descricao"
+                />
+              </CampoComAjuda>
+              <CampoComAjuda
+                rotulo="Preco por litro"
+                dica="Preço de referência em R$ por litro."
+              >
+                <input
+                  className="campo__input"
+                  placeholder="Preco por litro (R$)"
+                  value={form.preco_por_litro}
+                  onChange={(e) => setForm((f) => ({ ...f, preco_por_litro: e.target.value }))}
+                  inputMode="decimal"
+                  required
+                  aria-label="Preco por litro"
+                />
+              </CampoComAjuda>
               <label className="form-rede__checkbox-linha form-rede__input-span2">
                 <input
                   type="checkbox"
@@ -237,6 +265,7 @@ export default function CombustiveisRedeSecao() {
                   onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
                 />
                 Ativo
+                <TooltipInfo texto="Combustível ativo pode ser usado nas campanhas por litro." />
               </label>
             </div>
             <div className="form-rede__acoes">

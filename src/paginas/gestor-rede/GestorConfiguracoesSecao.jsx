@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { gestorRedeLogado } from "../../configuracao/painelApi";
-import { enviarTesteDePushRede } from "../../servicos/pushFcmRedeServico";
+import { enviarTesteDePushRede, buscarDiagnosticoPushRede } from "../../servicos/pushFcmRedeServico";
 import { atualizarAppModulosRede, buscarMinhaRedeGestor } from "../../servicos/redesServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import GestorIndiqueGanheSubsecao from "./GestorIndiqueGanheSubsecao";
@@ -25,6 +25,8 @@ export default function GestorConfiguracoesSecao() {
     "Mensagem de teste. Se o app estiver aberto, aparecera um aviso. Se fechou, a notificacao abre o app e o aviso."
   );
   const [enviando, setEnviando] = useState(false);
+  const [diagCarregando, setDiagCarregando] = useState(false);
+  const [diagPayload, setDiagPayload] = useState(null);
 
   const [redeCarregada, setRedeCarregada] = useState(false);
   const [modIndique, setModIndique] = useState(false);
@@ -96,6 +98,23 @@ export default function GestorConfiguracoesSecao() {
     }
   }
 
+  async function onDiagnosticoPush() {
+    if (diagCarregando) {
+      return;
+    }
+    setDiagCarregando(true);
+    setDiagPayload(null);
+    try {
+      const d = await buscarDiagnosticoPushRede();
+      setDiagPayload(d);
+      toastSucesso("Diagnostico atualizado.");
+    } catch (err) {
+      toastErro(err?.message || "Falha ao obter diagnostico.");
+    } finally {
+      setDiagCarregando(false);
+    }
+  }
+
   if (gestorRedeLogado() && subSecao === "indique") {
     return (
       <div className="configuracoes-painel">
@@ -142,6 +161,30 @@ export default function GestorConfiguracoesSecao() {
         permitidas. Texto personalizado abaixo. No celular, o app pode mostrar um dialogo (app aberto) ou
         notificacao na barra (em segundo plano / fechado); ao tocar, o mesmo resumo.
       </p>
+      <div className="form-rede__acoes" style={{ marginBottom: 16, gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="botao-secundario" disabled={diagCarregando} onClick={onDiagnosticoPush}>
+          {diagCarregando ? "A consultar…" : "Diagnostico push (servidor + tokens nesta rede)"}
+        </button>
+      </div>
+      {diagPayload ? (
+        <pre
+          className="rede-detalhes__ajuda"
+          style={{
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            maxHeight: 320,
+            overflow: "auto",
+            padding: 12,
+            background: "#0f172a",
+            color: "#e2e8f0",
+            borderRadius: 8,
+            fontSize: 12,
+            marginBottom: 16
+          }}
+        >
+          {JSON.stringify(diagPayload, null, 2)}
+        </pre>
+      ) : null}
       <form className="form-rede" onSubmit={onEnviarTeste}>
         <div className="form-rede__grid form-rede__grid--1col">
           <div>

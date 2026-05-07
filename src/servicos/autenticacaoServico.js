@@ -52,7 +52,8 @@ export async function loginPainel(email, senha) {
   const resposta = await fetch(montarUrlApi("/v1/autenticacao/login-painel"), {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "X-Painel-Web": "1"
     },
     body: JSON.stringify({ email, senha })
   });

@@ -1351,17 +1351,21 @@ body {
 .campo-com-ajuda {
   display: grid;
   gap: 6px;
+  overflow: visible;
 }
 
 .campo-com-ajuda__titulo {
   display: inline-flex;
   align-items: center;
+  overflow: visible;
 }
 
 .tooltip-info {
+  position: relative;
   display: inline-flex;
   justify-content: center;
   align-items: center;
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
   margin-left: 6px;
@@ -1374,12 +1378,70 @@ body {
   cursor: help;
   user-select: none;
   background: #f8fafc;
+  outline: none;
 }
 
-.tooltip-info:hover {
+.tooltip-info:hover,
+.tooltip-info:focus-visible {
   border-color: #64748b;
   color: #334155;
   background: #f1f5f9;
+}
+
+/* Balão escuro (texto em data-tooltip) */
+.tooltip-info::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  z-index: 10060;
+  box-sizing: border-box;
+  min-width: 160px;
+  max-width: min(280px, 70vw);
+  width: max-content;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  word-wrap: break-word;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.12s ease,
+    visibility 0.12s ease;
+}
+
+.tooltip-info::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  z-index: 10061;
+  border: 6px solid transparent;
+  border-top-color: #0f172a;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.12s ease,
+    visibility 0.12s ease;
+}
+
+.tooltip-info:hover::after,
+.tooltip-info:hover::before,
+.tooltip-info:focus-visible::after,
+.tooltip-info:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
 }
 
 .campanha-descricao-editor-wrap {

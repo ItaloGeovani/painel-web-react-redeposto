@@ -211,3 +211,16 @@ export async function atualizarAppModulosRede(payload) {
   });
   return dados?.rede;
 }
+
+/** Diagnostico FCM por rede (super-admin): contagens e sugestoes. */
+export async function buscarDiagnosticoPushRedeSuperAdmin(idRede) {
+  const rid = String(idRede || "").trim();
+  if (!rid) {
+    throw new Error("id_rede obrigatorio.");
+  }
+  if (!superAdminLogado()) {
+    throw new Error("Apenas administrador geral pode usar este diagnostico.");
+  }
+  const qs = new URLSearchParams({ id_rede: rid });
+  return requestAutenticada(`/v1/admin/redes/dev/push/diagnostico?${qs}`, { method: "GET" });
+}

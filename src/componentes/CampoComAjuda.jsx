@@ -1,10 +1,18 @@
 /**
- * Tooltip visual simples para explicar campos de formulário.
- * Usa title nativo para manter leve e sem dependências extras.
+ * Tooltip de campo: balão escuro via CSS (data-tooltip + ::after).
+ * O atributo title nativo não estiliza e costuma atrasar ou sumir sob overflow.
  */
 export function TooltipInfo({ texto }) {
+  const t = (texto ?? "").trim();
+  if (!t) return null;
   return (
-    <span className="tooltip-info" title={texto} aria-label={texto}>
+    <span
+      className="tooltip-info"
+      data-tooltip={t}
+      tabIndex={0}
+      role="note"
+      aria-label={t}
+    >
       i
     </span>
   );

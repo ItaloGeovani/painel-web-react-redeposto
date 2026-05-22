@@ -3,6 +3,7 @@ import { criarPremioRede, editarPremioRede, listarPremiosRede } from "../../serv
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import { datetimeLocalParaIso, isoParaDatetimeLocal } from "../../util/dataHoraLocal";
 import CampoComAjuda, { TooltipInfo } from "../../componentes/CampoComAjuda";
+import CampoImagemUrl from "../../componentes/CampoImagemUrl";
 
 const estadoInicialPremio = {
   titulo: "",
@@ -184,15 +185,13 @@ export default function AbaPremiosRede({ redeId }) {
             </CampoComAjuda>
             <CampoComAjuda
               rotulo="Imagem"
-              dica="URL pública da imagem do prêmio (http/https)."
+              dica="Envie um arquivo (JPEG, PNG, GIF, WebP) ou cole uma URL https."
               span2
             >
-              <input
-                className="campo__input"
-                placeholder="URL da imagem (https://...)"
-                type="url"
+              <CampoImagemUrl
+                span2
                 value={form.imagem_url}
-                onChange={(e) => setForm((p) => ({ ...p, imagem_url: e.target.value }))}
+                onChange={(url) => setForm((p) => ({ ...p, imagem_url: url }))}
               />
             </CampoComAjuda>
             <CampoComAjuda

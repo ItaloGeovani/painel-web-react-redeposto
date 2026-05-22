@@ -8,6 +8,7 @@ import AbaPremiosRede from "../super-admin/AbaPremiosRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
 import GestoresRedeGestaoSecao from "../super-admin/GestoresRedeGestaoSecao";
 import { AbaCampanhas, AbaPostos, ListaUsuariosRedePaginada } from "../super-admin/RedeDetalhesSecao";
+import ClientesPresencaAppSecao from "../../componentes/ClientesPresencaAppSecao";
 import AppCardsRedeSecao from "./AppCardsRedeSecao";
 import GestorRedeAuditoriaSecao from "./GestorRedeAuditoriaSecao";
 import GestorRedeRelatoriosSecao from "./GestorRedeRelatoriosSecao";
@@ -92,7 +93,7 @@ export default function DashboardGestorRedePagina({ sessao, onSair }) {
             <p className="rede-detalhes__ajuda" style={{ marginTop: 16 }}>
               Clientes da rede
             </p>
-            <ListaUsuariosRedePaginada redeId={rede.id} papeis="cliente" />
+            <ClientesPresencaAppSecao redeId={rede.id} />
             <p className="rede-detalhes__ajuda" style={{ marginTop: 16 }}>
               Equipe dos postos
             </p>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { URL_BASE_API } from "../../configuracao/apiConfig";
 import { listarAppCardsRede, salvarAppCardsRede } from "../../servicos/appCardsServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import CampoImagemUrl from "../../componentes/CampoImagemUrl";
 
 function cardVazio(slot) {
   return { slot, titulo: "", imagem_url: "", link_url: "", ativo: true };
@@ -130,13 +131,12 @@ export default function AppCardsRedeSecao({ redeId }) {
                 />
                 Ativo no app
               </label>
-              <input
-                className="campo__input form-rede__input-span2"
-                placeholder="URL da imagem (https://...)"
-                type="url"
+              <CampoImagemUrl
+                classNameInput="campo__input"
+                span2
                 value={c.imagem_url}
-                onChange={(e) => atualizar(slot, "imagem_url", e.target.value)}
-                aria-label={`Imagem ${nome}`}
+                onChange={(url) => atualizar(slot, "imagem_url", url)}
+                mostrarPrevia={false}
               />
               <input
                 className="campo__input form-rede__input-span2"

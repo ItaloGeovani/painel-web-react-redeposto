@@ -8,11 +8,13 @@ import AbaCarteiraRede from "../super-admin/AbaCarteiraRede";
 import AbaPremiosRede from "../super-admin/AbaPremiosRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
 import { AbaCampanhas, ListaUsuariosRedePaginada, SecaoEquipePosto } from "../super-admin/RedeDetalhesSecao";
+import ClientesPresencaAppSecao from "../../componentes/ClientesPresencaAppSecao";
 import AppCardsRedeSecao from "../gestor-rede/AppCardsRedeSecao";
 import CombustiveisRedeSecao from "../gestor-rede/CombustiveisRedeSecao";
 import GestorRedeAuditoriaSecao from "../gestor-rede/GestorRedeAuditoriaSecao";
 import GestorRedeRelatoriosSecao from "../gestor-rede/GestorRedeRelatoriosSecao";
 import GestorConfiguracoesSecao from "../gestor-rede/GestorConfiguracoesSecao";
+import GestorGatewaysPagamentoSecao from "../gestor-rede/GestorGatewaysPagamentoSecao";
 
 export default function DashboardGerentePostoPagina({ sessao, onSair }) {
   const itensMenu = useMemo(() => MENUS_GERENTE_POSTO.map((m) => m.nome), []);
@@ -122,7 +124,7 @@ export default function DashboardGerentePostoPagina({ sessao, onSair }) {
             <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
               Clientes da rede
             </p>
-            <ListaUsuariosRedePaginada redeId={rede.id} papeis="cliente" />
+            <ClientesPresencaAppSecao redeId={rede.id} />
             <p className="rede-detalhes__ajuda" style={{ marginTop: 16 }}>
               Equipe do seu posto
             </p>
@@ -141,6 +143,8 @@ export default function DashboardGerentePostoPagina({ sessao, onSair }) {
         return <CombustiveisRedeSecao />;
       case "carteira":
         return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} somenteLeituraMoeda />;
+      case "gateways-pagamento":
+        return <GestorGatewaysPagamentoSecao />;
       case "vouchers":
         return <AbaVouchersRede rede={rede} />;
       case "app-cards":

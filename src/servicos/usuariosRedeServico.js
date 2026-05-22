@@ -100,3 +100,21 @@ export async function editarUsuarioEquipe(payload) {
   });
   return dados?.usuario;
 }
+
+/** Ultima atividade no app (heartbeat); gestor ou gerente. */
+export async function listarPresencaAppClientes(opcoes = {}) {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  if (!prefixo) {
+    throw new Error("Disponivel apenas para gestor ou gerente de posto.");
+  }
+  const limite = opcoes.limite != null ? Number(opcoes.limite) : 200;
+  const minutosOnline =
+    opcoes.minutos_online != null ? Number(opcoes.minutos_online) : 15;
+  const params = new URLSearchParams({
+    limite: String(limite),
+    minutos_online: String(minutosOnline)
+  });
+  return requestAutenticada(`${prefixo}/clientes/presenca-app?${params.toString()}`, {
+    method: "GET"
+  });
+}

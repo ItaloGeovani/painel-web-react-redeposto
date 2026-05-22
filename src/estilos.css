@@ -2231,6 +2231,88 @@ body {
   }
 }
 
+.campo-imagem-url__linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.campo-imagem-url__linha .campo__input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.campo-imagem-url__botao {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.campo-imagem-url__erro {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  color: #b91c1c;
+}
+
+.campo-imagem-url__previa {
+  margin-top: 8px;
+}
+
+.campo-imagem-url__previa img {
+  max-width: 320px;
+  max-height: 160px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.tag-beneficio {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.tag-beneficio--desconto {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.tag-beneficio--cashback {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.beneficio-campanha-ajuda {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.beneficio-campanha-ajuda--desconto {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.beneficio-campanha-ajuda--cashback {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.beneficio-campanha-ajuda__titulo {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.beneficio-campanha-ajuda__lista {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
 @media (max-width: 420px) {
   .layout-login {
     padding: 12px 10px;

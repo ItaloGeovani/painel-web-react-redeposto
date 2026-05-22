@@ -105,6 +105,12 @@ export const MENUS_GERENTE_POSTO = [
     subtitulo: "Moeda virtual e visao financeira da rede (leitura; edicao pelo gestor da rede)."
   },
   {
+    id: "gateways-pagamento",
+    nome: "Gateways de pagamento",
+    titulo: "Gateways de pagamento",
+    subtitulo: "Mercado Pago do seu posto (quando a rede usa conta por unidade)."
+  },
+  {
     id: "vouchers",
     nome: "Vouchers",
     titulo: "Vouchers",

@@ -65,3 +65,15 @@ export async function criarPostoRede(payload) {
   });
   return dados?.posto;
 }
+
+export async function editarPostoRede(payload) {
+  const prefixo = prefixoApiRedeGestorOuGerente();
+  const path = prefixo
+    ? `${prefixo}/postos/editar`
+    : "/v1/admin/postos/dev/editar";
+  const dados = await requestAutenticada(path, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+  return dados?.posto;
+}

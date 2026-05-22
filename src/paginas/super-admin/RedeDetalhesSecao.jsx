@@ -2,12 +2,14 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { datetimeLocalParaIso, isoParaDatetimeLocal } from "../../util/dataHoraLocal";
 import { listarCombustiveisRede } from "../../servicos/combustiveisRedeServico";
 import { criarCampanhaRede, editarCampanhaRede, listarCampanhasRede } from "../../servicos/campanhasServico";
-import { criarPostoRede, listarPostosRede } from "../../servicos/postosServico";
+import { criarPostoRede, editarPostoRede, listarPostosRede } from "../../servicos/postosServico";
 import { criarUsuarioEquipe, editarUsuarioEquipe, listarUsuariosRede } from "../../servicos/usuariosRedeServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import GestoresRedeGestaoSecao from "./GestoresRedeGestaoSecao";
 import CampanhaDescricaoEditor from "../../componentes/CampanhaDescricaoEditor";
 import CampoComAjuda, { CampoHint, CampoSecaoTitulo } from "../../componentes/CampoComAjuda";
+import CampoImagemUrl from "../../componentes/CampoImagemUrl";
+import BeneficioCampanhaAjuda from "../../componentes/BeneficioCampanhaAjuda";
 import AbaCarteiraRede from "./AbaCarteiraRede";
 import AbaVouchersRede from "./AbaVouchersRede";
 import AbaAppMovelRede from "./AbaAppMovelRede";
@@ -52,6 +54,25 @@ const estadoInicialPosto = {
   telefone: "",
   email_contato: ""
 };
+
+function linhaPostoParaFormulario(p) {
+  return {
+    nome: p.nome ?? "",
+    codigo: p.codigo ?? "",
+    nome_fantasia: p.nome_fantasia ?? "",
+    cnpj: p.cnpj ?? "",
+    logo_url: p.logo_url ?? "",
+    rua: p.rua ?? "",
+    numero: p.numero ?? "",
+    bairro: p.bairro ?? "",
+    complemento: p.complemento ?? "",
+    cep: p.cep ?? "",
+    cidade: p.cidade ?? "",
+    estado: p.estado ?? "",
+    telefone: p.telefone ?? "",
+    email_contato: p.email_contato ?? ""
+  };
+}
 
 const estadoInicialCampanha = {
   id: "",
@@ -127,12 +148,58 @@ function rotuloBaseDesconto(b) {
   }
 }
 
+function textoCampanhaParaHeuristica(c) {
+  const html = String(c?.descricao || "").replace(/<[^>]*>/g, " ");
+  return [c?.nome, c?.titulo, c?.titulo_exibicao, html].join(" ").toLowerCase();
+}
+
+function pareceCampanhaCashbackLegado(c) {
+  const tipo = String(c?.tipo_beneficio || "").trim().toUpperCase();
+  if (tipo === "CASHBACK") {
+    return true;
+  }
+  if (tipo !== "DESCONTO") {
+    return false;
+  }
+  const mod = String(c?.modalidade_desconto || "").trim().toUpperCase();
+  const base = String(c?.base_desconto || "VALOR_COMPRA").trim().toUpperCase();
+  if (mod !== "PERCENTUAL" || (base !== "VALOR_COMPRA" && base !== "")) {
+    return false;
+  }
+  const texto = textoCampanhaParaHeuristica(c);
+  return texto.includes("cashback") || texto.includes("cash back");
+}
+
 function normalizarTipoBeneficioCampanha(c) {
-  return String(c?.tipo_beneficio || "DESCONTO").trim().toUpperCase() === "CASHBACK" ? "CASHBACK" : "DESCONTO";
+  if (pareceCampanhaCashbackLegado(c)) {
+    return "CASHBACK";
+  }
+  return "DESCONTO";
+}
+
+function valorDescontoCampanhaParaFormulario(c, tipoBeneficio) {
+  const v = c?.valor_desconto;
+  if (v == null || v === "") {
+    return "";
+  }
+  const n = Number(v);
+  if (Number.isNaN(n)) {
+    return String(v);
+  }
+  if (tipoBeneficio === "CASHBACK" && n > 0 && n <= 1) {
+    return String(n * 100);
+  }
+  return String(v);
 }
 
 function rotuloTipoBeneficioCampanha(c) {
   return normalizarTipoBeneficioCampanha(c) === "CASHBACK" ? "Cashback" : "Desconto";
+}
+
+function classeTagTipoBeneficio(c) {
+  return normalizarTipoBeneficioCampanha(c) === "CASHBACK"
+    ? "tag-beneficio tag-beneficio--cashback"
+    : "tag-beneficio tag-beneficio--desconto";
 }
 
 function resumoBeneficioCampanha(c) {
@@ -142,10 +209,12 @@ function resumoBeneficioCampanha(c) {
   const tipoBeneficio = normalizarTipoBeneficioCampanha(c);
   const base = rotuloBaseDesconto(c.base_desconto);
   if (c.modalidade_desconto === "PERCENTUAL") {
+    const pct = Number(c.valor_desconto);
+    const pctTxt = Number.isFinite(pct) ? (pct % 1 === 0 ? String(pct) : pct.toFixed(2)) : c.valor_desconto;
     if (tipoBeneficio === "CASHBACK") {
-      return `${c.valor_desconto}% de cashback (${base})`;
+      return `${pctTxt}% de cashback (${base})`;
     }
-    return `${c.valor_desconto}% (${base})`;
+    return `${pctTxt}% de desconto (${base})`;
   }
   if (c.modalidade_desconto === "VALOR_FIXO") {
     return `R$ ${Number(c.valor_desconto).toFixed(2)} (${base})`;
@@ -642,6 +711,7 @@ export function AbaPostos({ redeId }) {
   const [carregando, setCarregando] = useState(true);
   const [postoEquipe, setPostoEquipe] = useState(null);
   const [mostrarFormPosto, setMostrarFormPosto] = useState(false);
+  const [postoEditandoId, setPostoEditandoId] = useState(null);
   const [formPosto, setFormPosto] = useState(estadoInicialPosto);
   const [salvandoPosto, setSalvandoPosto] = useState(false);
 
@@ -666,8 +736,7 @@ export function AbaPostos({ redeId }) {
     event.preventDefault();
     setSalvandoPosto(true);
     try {
-      await criarPostoRede({
-        id_rede: redeId,
+      const campos = {
         nome: formPosto.nome,
         codigo: formPosto.codigo,
         nome_fantasia: formPosto.nome_fantasia,
@@ -682,13 +751,27 @@ export function AbaPostos({ redeId }) {
         estado: formPosto.estado,
         telefone: formPosto.telefone,
         email_contato: formPosto.email_contato
-      });
-      toastSucesso("Posto criado com sucesso.");
+      };
+      if (postoEditandoId) {
+        await editarPostoRede({
+          id: postoEditandoId,
+          id_rede: redeId,
+          ...campos
+        });
+        toastSucesso("Posto atualizado com sucesso.");
+      } else {
+        await criarPostoRede({
+          id_rede: redeId,
+          ...campos
+        });
+        toastSucesso("Posto criado com sucesso.");
+      }
       setFormPosto(estadoInicialPosto);
+      setPostoEditandoId(null);
       setMostrarFormPosto(false);
       await carregarPostos();
     } catch (err) {
-      toastErro(err.message || "Falha ao criar posto.");
+      toastErro(err.message || (postoEditandoId ? "Falha ao atualizar posto." : "Falha ao criar posto."));
     } finally {
       setSalvandoPosto(false);
     }
@@ -720,7 +803,18 @@ export function AbaPostos({ redeId }) {
         <button
           type="button"
           className="botao-primario"
-          onClick={() => setMostrarFormPosto((v) => !v)}
+          onClick={() => {
+            setMostrarFormPosto((aberto) => {
+              if (aberto) {
+                setPostoEditandoId(null);
+                setFormPosto(estadoInicialPosto);
+                return false;
+              }
+              setPostoEditandoId(null);
+              setFormPosto(estadoInicialPosto);
+              return true;
+            });
+          }}
         >
           {mostrarFormPosto ? "Fechar formulario" : "Novo posto"}
         </button>
@@ -729,8 +823,17 @@ export function AbaPostos({ redeId }) {
       {mostrarFormPosto ? (
         <form className="form-rede form-rede--equipe" onSubmit={onSubmitPosto}>
           <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form">
-            Campos obrigatorios: <strong>nome</strong> e <strong>codigo</strong> (unico na rede). CNPJ, se informado,
-            deve ter 14 digitos; CEP, 8 digitos; logo deve ser URL http(s) valida.
+            {postoEditandoId ? (
+              <>
+                Alterando dados da unidade. Campos obrigatorios: <strong>nome</strong> e <strong>codigo</strong> (unico
+                na rede). CNPJ, se informado, deve ter 14 digitos; CEP, 8 digitos. Logo: envie arquivo ou URL https.
+              </>
+            ) : (
+              <>
+                Campos obrigatorios: <strong>nome</strong> e <strong>codigo</strong> (unico na rede). CNPJ, se informado,
+                deve ter 14 digitos; CEP, 8 digitos. Logo: use <strong>Escolher imagem</strong> ou cole URL https.
+              </>
+            )}
           </p>
           <div className="form-rede__grid">
             <CampoComAjuda
@@ -857,27 +960,26 @@ export function AbaPostos({ redeId }) {
             </CampoComAjuda>
             <CampoComAjuda
               rotulo="Logo"
-              dica="URL pública da logo da unidade (http/https)."
+              dica="Imagem da unidade no app e listagens. Envie JPEG, PNG, GIF ou WebP (ate 12 MB) ou informe URL https."
               span2
             >
-              <input
-                className="campo__input"
-                placeholder="URL do logo (https://...)"
-                type="url"
+              <CampoImagemUrl
                 value={formPosto.logo_url}
-                onChange={(e) => setFormPosto((p) => ({ ...p, logo_url: e.target.value }))}
+                onChange={(url) => setFormPosto((p) => ({ ...p, logo_url: url }))}
+                placeholder="URL do logo (https://...) ou envie um arquivo"
               />
             </CampoComAjuda>
           </div>
           <div className="form-rede__acoes">
             <button className="botao-primario" type="submit" disabled={salvandoPosto}>
-              {salvandoPosto ? "Salvando..." : "Criar posto"}
+              {salvandoPosto ? "Salvando..." : postoEditandoId ? "Salvar alteracoes" : "Criar posto"}
             </button>
             <button
               type="button"
               className="botao-secundario"
               onClick={() => {
                 setFormPosto(estadoInicialPosto);
+                setPostoEditandoId(null);
                 setMostrarFormPosto(false);
               }}
             >
@@ -934,6 +1036,17 @@ export function AbaPostos({ redeId }) {
                     )}
                   </td>
                   <td>
+                    <button
+                      type="button"
+                      className="tabela-btn"
+                      onClick={() => {
+                        setPostoEditandoId(p.id);
+                        setFormPosto(linhaPostoParaFormulario(p));
+                        setMostrarFormPosto(true);
+                      }}
+                    >
+                      Editar
+                    </button>{" "}
                     <button
                       type="button"
                       className="tabela-btn tabela-btn--acento"
@@ -1070,6 +1183,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
   function abrirEditar(c) {
     setEditandoId(c.id);
     const idsC = Array.isArray(c.ids_combustiveis_rede) ? c.ids_combustiveis_rede : [];
+    const tipoBeneficio = normalizarTipoBeneficioCampanha(c);
     setFormCampanha({
       id: c.id,
       nome: c.nome || "",
@@ -1080,12 +1194,12 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       vigencia_inicio: isoParaDatetimeLocal(c.vigencia_inicio),
       vigencia_fim: isoParaDatetimeLocal(c.vigencia_fim),
       status: c.status || "ATIVA",
-      tipo_beneficio: normalizarTipoBeneficioCampanha(c),
+      tipo_beneficio: tipoBeneficio,
       canal: c.valida_no_posto_fisico ? "posto_fisico" : "app",
       modalidade_desconto: c.modalidade_desconto || "NENHUM",
       base_desconto:
         c.base_desconto === "UNIDADE" ? "VALOR_COMPRA" : c.base_desconto || "VALOR_COMPRA",
-      valor_desconto: c.valor_desconto != null && c.valor_desconto !== "" ? String(c.valor_desconto) : "",
+      valor_desconto: valorDescontoCampanhaParaFormulario(c, tipoBeneficio),
       valor_minimo_compra:
         c.valor_minimo_compra != null && c.valor_minimo_compra !== "" ? String(c.valor_minimo_compra) : "0",
       max_usos_por_cliente: c.max_usos_por_cliente != null ? String(c.max_usos_por_cliente) : "",
@@ -1170,6 +1284,16 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
     if (tipoBeneficio === "CASHBACK" && (formCampanha.modalidade_desconto || "NENHUM") !== "PERCENTUAL") {
       toastErro("Campanha com cashback exige modalidade percentual.");
       return;
+    }
+    if ((formCampanha.modalidade_desconto || "NENHUM") === "PERCENTUAL") {
+      if (Number.isNaN(valorDesc) || valorDesc <= 0 || valorDesc > 100) {
+        toastErro(
+          tipoBeneficio === "CASHBACK"
+            ? "Percentual de cashback: informe um numero entre 1 e 100 (ex.: 10 para 10%)."
+            : "Percentual de desconto: informe um numero entre 0,01 e 100 (ex.: 5 para 5%)."
+        );
+        return;
+      }
     }
     setSalvando(true);
     try {
@@ -1271,7 +1395,8 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
           <CampoHint>
             Datas em horario local; a API envia em UTC (ISO8601). Para cashback, use modalidade percentual. Sem desconto:
             modalidade &quot;Nenhum&quot; e valor do desconto 0. Percentual: 0-100. Limite de usos: vazio = sem limite ate
-            o fim da promocao.
+            o fim da promocao. Na imagem, use <strong>Escolher imagem</strong> (JPEG, PNG, GIF ou WebP ate 12 MB) ou cole
+            uma URL https.
           </CampoHint>
           <CampoHint>
             <strong>Canal:</strong> aplicativo (as promocoes valem apenas no app).
@@ -1335,7 +1460,8 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
             </CampoComAjuda>
             <CampoComAjuda
               rotulo="Tipo de beneficio"
-              dica="Desconto reduz valor da compra; Cashback credita saldo após pagamento."
+              dica="Campo gravado no banco (tipo_beneficio). Desconto abate o PIX; Cashback credita moeda na carteira apos pagar."
+              span2
             >
               <select
                 className="campo__input"
@@ -1347,15 +1473,18 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
                     modalidade_desconto:
                       e.target.value === "CASHBACK"
                         ? "PERCENTUAL"
-                        : p.modalidade_desconto || "NENHUM"
+                        : p.modalidade_desconto || "NENHUM",
+                    base_desconto:
+                      e.target.value === "CASHBACK" ? "VALOR_COMPRA" : p.base_desconto
                   }))
                 }
                 aria-label="Tipo de beneficio"
               >
-                <option value="DESCONTO">Desconto</option>
-                <option value="CASHBACK">Cashback</option>
+                <option value="DESCONTO">Desconto — reduz o valor do PIX na compra</option>
+                <option value="CASHBACK">Cashback — credita moeda virtual apos pagamento</option>
               </select>
             </CampoComAjuda>
+            <BeneficioCampanhaAjuda tipo={formCampanha.tipo_beneficio} />
             <CampoComAjuda
               rotulo="Modalidade"
               dica="Cashback aceita apenas percentual. Desconto pode ser percentual ou valor fixo."
@@ -1392,15 +1521,19 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
               </select>
             </CampoComAjuda>
             <CampoComAjuda
-              rotulo="Valor"
-              dica="Percentual (%) ou valor em R$ conforme modalidade escolhida."
+              rotulo={formCampanha.tipo_beneficio === "CASHBACK" ? "Percentual de cashback" : "Valor do beneficio"}
+              dica={
+                formCampanha.tipo_beneficio === "CASHBACK"
+                  ? "Escala 0–100: 10 significa 10% creditados na carteira apos o PIX aprovado."
+                  : "Percentual: 0–100 (ex.: 5 = 5%). Valor fixo: valor em R$."
+              }
             >
               <input
                 className="campo__input"
                 placeholder={
                   formCampanha.tipo_beneficio === "CASHBACK"
-                    ? "Percentual de cashback (%)"
-                    : "Valor do desconto (% ou R$ conforme modalidade)"
+                    ? "Ex.: 10 (= 10% de cashback)"
+                    : "Percentual (1–100) ou R$ se valor fixo"
                 }
                 inputMode="decimal"
                 value={formCampanha.valor_desconto}
@@ -1530,15 +1663,12 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
             </CampoComAjuda>
             <CampoComAjuda
               rotulo="Imagem"
-              dica="URL pública da imagem da campanha (http/https)."
+              dica="Escolha um arquivo no disco ou informe uma URL publica https. Apos o envio, o campo URL e preenchido sozinho."
               span2
             >
-              <input
-                className="campo__input"
-                placeholder="URL da imagem (https://...)"
-                type="url"
+              <CampoImagemUrl
                 value={formCampanha.imagem_url}
-                onChange={(e) => setFormCampanha((p) => ({ ...p, imagem_url: e.target.value }))}
+                onChange={(url) => setFormCampanha((p) => ({ ...p, imagem_url: url }))}
               />
             </CampoComAjuda>
             <div className="form-rede__input-span2 campanha-descricao-editor-wrap">
@@ -1616,7 +1746,10 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
                       ) : null}
                     </td>
                     <td>{rotuloCanaisCampanha(c)}</td>
-                    <td>{rotuloTipoBeneficioCampanha(c)}</td>
+                    <td className="tabela-celula--stack">
+                      <span className={classeTagTipoBeneficio(c)}>{rotuloTipoBeneficioCampanha(c)}</span>
+                      <span className="tabela-celula__sub">{resumoBeneficioCampanha(c)}</span>
+                    </td>
                     <td className="tabela-celula--stack tabela-campanha__col-vigencia">
                       {c.vigencia_inicio ? new Date(c.vigencia_inicio).toLocaleString() : "—"}
                       <span className="tabela-celula__sub">

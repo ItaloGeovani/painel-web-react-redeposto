@@ -1,5 +1,5 @@
 import { montarUrlApi } from "../configuracao/apiConfig";
-import { gestorRedeLogado } from "../configuracao/painelApi";
+import { prefixoApiRedeGestorOuGerente } from "../configuracao/painelApi";
 import { limparSessao } from "./sessaoServico";
 
 function obterHeadersAutenticados() {
@@ -39,21 +39,38 @@ async function requestAutenticada(caminho, options = {}) {
   return payload;
 }
 
-function prefixoGestor() {
-  if (!gestorRedeLogado()) {
-    throw new Error("Disponivel apenas para gestor da rede.");
+function prefixo() {
+  const p = prefixoApiRedeGestorOuGerente();
+  if (!p) {
+    throw new Error("Disponivel apenas para gestor ou gerente de posto.");
   }
-  return "/v1/gestor-rede/dev";
+  return p;
 }
 
-/** GET — retorna webhook_url, flags e tokens mascarados. */
+/** GET — modo REDE/POSTO, credenciais da rede ou lista de postos. */
 export async function obterConfigMercadoPago() {
-  return requestAutenticada(`${prefixoGestor()}/mercadopago-gateway`, { method: "GET" });
+  return requestAutenticada(`${prefixo()}/mercadopago-gateway`, { method: "GET" });
 }
 
-/** PUT — body: { mp_access_token, mp_webhook_secret } */
+/** PUT — credenciais da rede (modo REDE). */
 export async function salvarConfigMercadoPago(body) {
-  return requestAutenticada(`${prefixoGestor()}/mercadopago-gateway`, {
+  return requestAutenticada(`${prefixo()}/mercadopago-gateway`, {
+    method: "PUT",
+    body: JSON.stringify(body)
+  });
+}
+
+/** PUT — modo de gateway: REDE | POSTO (apenas gestor). */
+export async function salvarGatewayPagamentoModo(modo) {
+  return requestAutenticada("/v1/gestor-rede/dev/redes/gateway-pagamento-modo", {
+    method: "PUT",
+    body: JSON.stringify({ gateway_pagamento_modo: modo })
+  });
+}
+
+/** PUT — credenciais de um posto (modo POSTO). */
+export async function salvarConfigMercadoPagoPosto(body) {
+  return requestAutenticada(`${prefixo()}/mercadopago-gateway/posto`, {
     method: "PUT",
     body: JSON.stringify(body)
   });

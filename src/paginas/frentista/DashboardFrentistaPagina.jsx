@@ -1,46 +1,176 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import PainelLayout from "../../componentes/layout/PainelLayout";
+import DesktopLayout from "../../layouts/DesktopLayout";
+import { isDesktop } from "../../configuracao/appTarget";
 import { MENUS_FRENTISTA } from "../../constantes/menusPorPapel";
+import {
+  PREFIXO_FRENTISTA,
+  menuPorId,
+  menusComPath
+} from "../../constantes/rotas";
 import { buscarMinhaRedeGestor } from "../../servicos/redesServico";
+import { listarPostosRede } from "../../servicos/postosServico";
 import { toastErro } from "../../servicos/toastServico";
-import AbaCarteiraRede from "../super-admin/AbaCarteiraRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
 import { AbaCampanhas } from "../super-admin/RedeDetalhesSecao";
-import GestorRedeRelatoriosSecao from "../gestor-rede/GestorRedeRelatoriosSecao";
+import FrentistaValidarVoucherSecao from "./FrentistaValidarVoucherSecao";
+import FrentistaRelatoriosSecao from "./FrentistaRelatoriosSecao";
+import AbaPremiosRede from "../super-admin/AbaPremiosRede";
+
+function FrentistaConteudo({ rede, carregandoRede, onRedeRefresh }) {
+  const { secao } = useParams();
+  const menuConfig = menuPorId(MENUS_FRENTISTA, secao);
+  const idsValidos = MENUS_FRENTISTA.map((m) => m.id);
+
+  if (!idsValidos.includes(secao)) {
+    return <Navigate to={`${PREFIXO_FRENTISTA}/${MENUS_FRENTISTA[0].id}`} replace />;
+  }
+
+  if (carregandoRede) {
+    return (
+      <article className="card-resumo">
+        <p>Carregando dados da rede...</p>
+      </article>
+    );
+  }
+  if (!rede) {
+    return (
+      <article className="card-resumo">
+        <strong>Nao foi possivel carregar a rede</strong>
+        <p>Verifique se o usuario esta vinculado a uma rede ou faca login novamente.</p>
+      </article>
+    );
+  }
+
+  const id = menuConfig.id;
+
+  switch (id) {
+    case "ler-voucher":
+      return <FrentistaValidarVoucherSecao rede={rede} />;
+    case "premios":
+      return (
+        <AbaPremiosRede
+          redeId={rede.id}
+          somenteResgates
+          podeCancelar={false}
+          podeEditarCatalogo={false}
+        />
+      );
+    case "campanhas":
+      return <AbaCampanhas redeId={rede.id} somenteLeitura />;
+    case "vouchers":
+      return <AbaVouchersRede rede={rede} />;
+    case "relatorios":
+      return <FrentistaRelatoriosSecao />;
+    default:
+      return null;
+  }
+}
+
+function FrentistaShell({
+  sessao,
+  onSair,
+  itensMenu,
+  rede,
+  postoNome,
+  carregandoRede,
+  onRedeRefresh
+}) {
+  const { secao } = useParams();
+  const menuConfig = menuPorId(MENUS_FRENTISTA, secao);
+
+  const ocultarLinhaRede = secao === "ler-voucher";
+
+  const conteudo = (
+    <div className={isDesktop ? "gp-pdv-conteudo" : "painel-gestor-rede"}>
+      {rede && !ocultarLinhaRede && !isDesktop ? (
+        <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
+          <strong>{rede.nome_fantasia}</strong> — CNPJ {rede.cnpj || "—"}
+        </p>
+      ) : null}
+      <FrentistaConteudo
+        rede={rede}
+        carregandoRede={carregandoRede}
+        onRedeRefresh={onRedeRefresh}
+      />
+    </div>
+  );
+
+  if (isDesktop) {
+    return (
+      <DesktopLayout
+        usuario={sessao?.usuario}
+        postoNome={postoNome}
+        rede={rede}
+        itensMenu={itensMenu}
+        onSair={onSair}
+      >
+        {conteudo}
+      </DesktopLayout>
+    );
+  }
+
+  return (
+    <PainelLayout
+      titulo={menuConfig.titulo}
+      subtitulo={menuConfig.subtitulo}
+      usuario={sessao?.usuario}
+      itensMenu={itensMenu}
+      onSair={onSair}
+    >
+      {conteudo}
+    </PainelLayout>
+  );
+}
 
 export default function DashboardFrentistaPagina({ sessao, onSair }) {
-  const itensMenu = useMemo(() => MENUS_FRENTISTA.map((m) => m.nome), []);
-  const [menuAtivo, setMenuAtivo] = useState(() => MENUS_FRENTISTA[0]?.nome ?? "");
+  const itensMenu = useMemo(() => menusComPath(MENUS_FRENTISTA, PREFIXO_FRENTISTA), []);
   const [rede, setRede] = useState(null);
+  const [postoNome, setPostoNome] = useState("");
   const [carregandoRede, setCarregandoRede] = useState(true);
 
-  const menuConfig = useMemo(
-    () => MENUS_FRENTISTA.find((m) => m.nome === menuAtivo) || MENUS_FRENTISTA[0],
-    [menuAtivo]
-  );
+  const carregarContexto = useCallback(async () => {
+    const r = await buscarMinhaRedeGestor();
+    let nomePosto = "";
+    const idPosto = String(sessao?.usuario?.id_posto || "").trim();
+    if (idPosto && r?.id) {
+      try {
+        const postos = await listarPostosRede(r.id);
+        const posto = postos.find((p) => String(p.id) === idPosto);
+        nomePosto = posto?.nome_fantasia || posto?.nome || "";
+      } catch {
+        nomePosto = "";
+      }
+    }
+    return { rede: r, postoNome: nomePosto };
+  }, [sessao?.usuario?.id_posto]);
 
   const onRedeRefresh = useCallback(async () => {
     try {
-      const r = await buscarMinhaRedeGestor();
+      const { rede: r, postoNome: nome } = await carregarContexto();
       setRede(r);
+      setPostoNome(nome);
     } catch (err) {
       toastErro(err.message || "Falha ao atualizar dados da rede.");
     }
-  }, []);
+  }, [carregarContexto]);
 
   useEffect(() => {
     let cancelado = false;
     (async () => {
       setCarregandoRede(true);
       try {
-        const r = await buscarMinhaRedeGestor();
+        const { rede: r, postoNome: nome } = await carregarContexto();
         if (!cancelado) {
           setRede(r);
+          setPostoNome(nome);
         }
       } catch (err) {
         if (!cancelado) {
           toastErro(err.message || "Falha ao carregar dados da rede.");
           setRede(null);
+          setPostoNome("");
         }
       } finally {
         if (!cancelado) {
@@ -51,59 +181,26 @@ export default function DashboardFrentistaPagina({ sessao, onSair }) {
     return () => {
       cancelado = true;
     };
-  }, []);
-
-  function renderConteudo() {
-    if (carregandoRede) {
-      return (
-        <article className="card-resumo">
-          <p>Carregando dados da rede...</p>
-        </article>
-      );
-    }
-    if (!rede) {
-      return (
-        <article className="card-resumo">
-          <strong>Nao foi possivel carregar a rede</strong>
-          <p>Verifique se o usuario esta vinculado a uma rede ou faca login novamente.</p>
-        </article>
-      );
-    }
-
-    const id = menuConfig.id;
-
-    switch (id) {
-      case "campanhas":
-        return <AbaCampanhas redeId={rede.id} somenteLeitura />;
-      case "carteira":
-        return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} somenteLeituraMoeda />;
-      case "vouchers":
-        return <AbaVouchersRede rede={rede} />;
-      case "relatorios":
-        return <GestorRedeRelatoriosSecao />;
-      default:
-        return null;
-    }
-  }
+  }, [carregarContexto]);
 
   return (
-    <PainelLayout
-      titulo={menuConfig.titulo}
-      subtitulo={menuConfig.subtitulo}
-      usuario={sessao?.usuario}
-      itensMenu={itensMenu}
-      itemMenuAtivo={menuAtivo}
-      onSelecionarMenu={setMenuAtivo}
-      onSair={onSair}
-    >
-      <div className="painel-gestor-rede">
-        {rede ? (
-          <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
-            <strong>{rede.nome_fantasia}</strong> — CNPJ {rede.cnpj || "—"}
-          </p>
-        ) : null}
-        {renderConteudo()}
-      </div>
-    </PainelLayout>
+    <Routes>
+      <Route index element={<Navigate to={MENUS_FRENTISTA[0].id} replace />} />
+      <Route
+        path=":secao"
+        element={
+          <FrentistaShell
+            sessao={sessao}
+            onSair={onSair}
+            itensMenu={itensMenu}
+            rede={rede}
+            postoNome={postoNome}
+            carregandoRede={carregandoRede}
+            onRedeRefresh={onRedeRefresh}
+          />
+        }
+      />
+      <Route path="*" element={<Navigate to={MENUS_FRENTISTA[0].id} replace />} />
+    </Routes>
   );
 }

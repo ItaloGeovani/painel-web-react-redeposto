@@ -1,30 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import PainelLayout from "../../componentes/layout/PainelLayout";
+import {
+  MENUS_SUPER_ADMIN,
+  PREFIXO_ADMIN,
+  menuPorId,
+  menusComPath
+} from "../../constantes/rotas";
 import { obterResumoDashboardAdmin } from "../../servicos/dashboardServico";
 import { toastErro } from "../../servicos/toastServico";
 import RedesGestaoSecao from "./RedesGestaoSecao";
 import SuperAdminAuditoriaSecao from "./SuperAdminAuditoriaSecao";
 import SuperAdminConfiguracaoSecao from "./SuperAdminConfiguracaoSecao";
+import SuperAdminDownloadsSecao from "./SuperAdminDownloadsSecao";
 import SuperAdminRelatoriosSecao from "./SuperAdminRelatoriosSecao";
 
-const MENUS_SUPER_ADMIN = [
-  { id: "visao-geral", nome: "Visao Geral", titulo: "Dashboard do Administrador Global", subtitulo: "Visao consolidada da plataforma para decisoes rapidas." },
-  {
-    id: "redes",
-    nome: "Redes",
-    titulo: "Gestao de Redes",
-    subtitulo:
-      "Use Gerenciar para o painel da rede: postos, equipe por posto, gestor, clientes, campanhas, carteira, premios e vouchers."
-  },
-  { id: "relatorios", nome: "Relatorios", titulo: "Relatorios", subtitulo: "Relatorios gerenciais, operacionais e financeiros da plataforma." },
-  { id: "auditoria", nome: "Auditoria", titulo: "Auditoria e Logs", subtitulo: "Trilha de auditoria de eventos criticos e acoes administrativas." },
-  { id: "configuracoes", nome: "Configuracoes do Sistema", titulo: "Configuracoes do Sistema", subtitulo: "Parametros globais, identidade visual e integracoes." }
-];
-
-export default function DashboardSuperAdminPagina({ sessao, onSair }) {
-  // Padrao do painel: o titulo/subtitulo de cada area deve ficar apenas no cabecalho global (PainelLayout).
-  const itensMenu = MENUS_SUPER_ADMIN.map((item) => item.nome);
-  const [menuAtivo, setMenuAtivo] = useState("Visao Geral");
+function SuperAdminVisaoGeral() {
   const [resumo, setResumo] = useState(null);
   const [carregandoResumo, setCarregandoResumo] = useState(true);
 
@@ -44,100 +35,130 @@ export default function DashboardSuperAdminPagina({ sessao, onSair }) {
     carregarResumo();
   }, []);
 
-  const menuConfig = useMemo(
-    () => MENUS_SUPER_ADMIN.find((item) => item.nome === menuAtivo) || MENUS_SUPER_ADMIN[0],
-    [menuAtivo]
-  );
+  const valorMensal = Number(resumo?.receita_mensal_prevista || 0);
+  const valorImplantacao = Number(resumo?.receita_implantacao_prevista || 0);
 
-  const idMenuAtivo = menuConfig.id;
-
-  const tituloSecao = useMemo(() => {
-    return menuConfig.titulo;
-  }, [menuConfig]);
-
-  const subtituloSecao = useMemo(() => {
-    return menuConfig.subtitulo;
-  }, [menuConfig]);
-
-  const conteudoSecao = useMemo(() => {
-    if (idMenuAtivo === "redes") {
-      return <RedesGestaoSecao />;
-    }
-    if (idMenuAtivo === "relatorios") {
-      return <SuperAdminRelatoriosSecao />;
-    }
-    if (idMenuAtivo === "auditoria") {
-      return <SuperAdminAuditoriaSecao />;
-    }
-    if (idMenuAtivo === "configuracoes") {
-      return <SuperAdminConfiguracaoSecao />;
-    }
-    if (idMenuAtivo === "visao-geral") {
-      const valorMensal = Number(resumo?.receita_mensal_prevista || 0);
-      const valorImplantacao = Number(resumo?.receita_implantacao_prevista || 0);
-
-      return (
-        <div className="grid-resumo">
-          <article className="card-resumo">
-            <h3>Redes ativas</h3>
-            <strong>{carregandoResumo ? "..." : String(resumo?.redes_ativas || 0)}</strong>
-            <p>Total de redes em operacao ativa.</p>
-          </article>
-
-          <article className="card-resumo">
-            <h3>Gestores cadastrados</h3>
-            <strong>{carregandoResumo ? "..." : String(resumo?.total_gestores || 0)}</strong>
-            <p>Usuarios gestores vinculados as redes.</p>
-          </article>
-
-          <article className="card-resumo">
-            <h3>Receita mensal prevista</h3>
-            <strong>{carregandoResumo ? "..." : formatarMoeda(valorMensal)}</strong>
-            <p>Soma das mensalidades de redes ativas.</p>
-          </article>
-
-          <article className="card-resumo">
-            <h3>Redes inativas</h3>
-            <strong>{carregandoResumo ? "..." : String(resumo?.redes_inativas || 0)}</strong>
-            <p>Redes aguardando ativacao ou pausadas.</p>
-          </article>
-
-          <article className="card-resumo">
-            <h3>Gestores ativos</h3>
-            <strong>{carregandoResumo ? "..." : String(resumo?.gestores_ativos || 0)}</strong>
-            <p>Gestores atualmente liberados para acesso.</p>
-          </article>
-
-          <article className="card-resumo">
-            <h3>Receita de implantacao prevista</h3>
-            <strong>{carregandoResumo ? "..." : formatarMoeda(valorImplantacao)}</strong>
-            <p>Soma das implantacoes acordadas nas redes.</p>
-          </article>
-        </div>
-      );
-    }
-
-    return (
+  return (
+    <div className="grid-resumo">
       <article className="card-resumo">
-        <h3>{menuConfig.titulo}</h3>
-        <strong>Secao nao encontrada</strong>
-        <p>Menu desconhecido.</p>
+        <h3>Redes ativas</h3>
+        <strong>{carregandoResumo ? "..." : String(resumo?.redes_ativas || 0)}</strong>
+        <p>Total de redes em operacao ativa.</p>
       </article>
-    );
-  }, [idMenuAtivo, menuConfig.titulo, resumo, carregandoResumo]);
+
+      <article className="card-resumo">
+        <h3>Gestores cadastrados</h3>
+        <strong>{carregandoResumo ? "..." : String(resumo?.total_gestores || 0)}</strong>
+        <p>Usuarios gestores vinculados as redes.</p>
+      </article>
+
+      <article className="card-resumo">
+        <h3>Receita mensal prevista</h3>
+        <strong>{carregandoResumo ? "..." : formatarMoeda(valorMensal)}</strong>
+        <p>Soma das mensalidades de redes ativas.</p>
+      </article>
+
+      <article className="card-resumo">
+        <h3>Redes inativas</h3>
+        <strong>{carregandoResumo ? "..." : String(resumo?.redes_inativas || 0)}</strong>
+        <p>Redes aguardando ativacao ou pausadas.</p>
+      </article>
+
+      <article className="card-resumo">
+        <h3>Gestores ativos</h3>
+        <strong>{carregandoResumo ? "..." : String(resumo?.gestores_ativos || 0)}</strong>
+        <p>Gestores atualmente liberados para acesso.</p>
+      </article>
+
+      <article className="card-resumo">
+        <h3>Receita de implantacao prevista</h3>
+        <strong>{carregandoResumo ? "..." : formatarMoeda(valorImplantacao)}</strong>
+        <p>Soma das implantacoes acordadas nas redes.</p>
+      </article>
+    </div>
+  );
+}
+
+function AdminShell({ sessao, onSair, itensMenu, menuId }) {
+  const menuConfig = menuPorId(MENUS_SUPER_ADMIN, menuId);
 
   return (
     <PainelLayout
-      titulo={tituloSecao}
-      subtitulo={subtituloSecao}
+      titulo={menuConfig.titulo}
+      subtitulo={menuConfig.subtitulo}
       usuario={sessao?.usuario}
       itensMenu={itensMenu}
-      itemMenuAtivo={menuAtivo}
-      onSelecionarMenu={setMenuAtivo}
       onSair={onSair}
     >
-      {conteudoSecao}
+      <AdminSecaoConteudo menuId={menuId} />
     </PainelLayout>
+  );
+}
+
+function AdminSecaoPorParam({ sessao, onSair, itensMenu }) {
+  const { secao } = useParams();
+  const idsValidos = MENUS_SUPER_ADMIN.map((m) => m.id);
+  if (!idsValidos.includes(secao)) {
+    return <Navigate to={`${PREFIXO_ADMIN}/visao-geral`} replace />;
+  }
+  return <AdminShell sessao={sessao} onSair={onSair} itensMenu={itensMenu} menuId={secao} />;
+}
+
+function AdminSecaoConteudo({ menuId }) {
+  if (menuId === "visao-geral") {
+    return <SuperAdminVisaoGeral />;
+  }
+  if (menuId === "redes") {
+    return <RedesGestaoSecao />;
+  }
+  if (menuId === "relatorios") {
+    return <SuperAdminRelatoriosSecao />;
+  }
+  if (menuId === "auditoria") {
+    return <SuperAdminAuditoriaSecao />;
+  }
+  if (menuId === "configuracoes") {
+    return <SuperAdminConfiguracaoSecao />;
+  }
+  if (menuId === "downloads") {
+    return <SuperAdminDownloadsSecao />;
+  }
+  return <Navigate to={`${PREFIXO_ADMIN}/visao-geral`} replace />;
+}
+
+export default function DashboardSuperAdminPagina({ sessao, onSair }) {
+  const itensMenu = useMemo(
+    () =>
+      menusComPath(MENUS_SUPER_ADMIN, PREFIXO_ADMIN).map((item) => ({
+        id: item.id,
+        nome: item.nome,
+        path: item.path,
+        end: item.id !== "redes"
+      })),
+    []
+  );
+
+  return (
+    <Routes>
+      <Route index element={<Navigate to="visao-geral" replace />} />
+      <Route
+        path="redes/:redeId"
+        element={
+          <AdminShell sessao={sessao} onSair={onSair} itensMenu={itensMenu} menuId="redes" />
+        }
+      />
+      <Route
+        path="redes/:redeId/:aba"
+        element={
+          <AdminShell sessao={sessao} onSair={onSair} itensMenu={itensMenu} menuId="redes" />
+        }
+      />
+      <Route
+        path=":secao"
+        element={<AdminSecaoPorParam sessao={sessao} onSair={onSair} itensMenu={itensMenu} />}
+      />
+      <Route path="*" element={<Navigate to="visao-geral" replace />} />
+    </Routes>
   );
 }
 

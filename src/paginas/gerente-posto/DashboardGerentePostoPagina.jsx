@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import PainelLayout from "../../componentes/layout/PainelLayout";
 import { MENUS_GERENTE_POSTO } from "../../constantes/menusPorPapel";
+import {
+  PREFIXO_GERENTE,
+  menuPorId,
+  menusComPath
+} from "../../constantes/rotas";
 import { buscarMinhaRedeGestor } from "../../servicos/redesServico";
 import { listarPostosRede } from "../../servicos/postosServico";
 import { toastErro } from "../../servicos/toastServico";
 import AbaCarteiraRede from "../super-admin/AbaCarteiraRede";
 import AbaPremiosRede from "../super-admin/AbaPremiosRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
-import { AbaCampanhas, ListaUsuariosRedePaginada, SecaoEquipePosto } from "../super-admin/RedeDetalhesSecao";
+import { AbaCampanhas, SecaoEquipePosto } from "../super-admin/RedeDetalhesSecao";
 import ClientesPresencaAppSecao from "../../componentes/ClientesPresencaAppSecao";
 import AppCardsRedeSecao from "../gestor-rede/AppCardsRedeSecao";
 import CombustiveisRedeSecao from "../gestor-rede/CombustiveisRedeSecao";
@@ -16,19 +22,138 @@ import GestorRedeRelatoriosSecao from "../gestor-rede/GestorRedeRelatoriosSecao"
 import GestorConfiguracoesSecao from "../gestor-rede/GestorConfiguracoesSecao";
 import GestorGatewaysPagamentoSecao from "../gestor-rede/GestorGatewaysPagamentoSecao";
 
+function GerenteConteudo({ rede, carregandoRede, idPosto, nomePostoExibicao, onRedeRefresh }) {
+  const { secao } = useParams();
+  const menuConfig = menuPorId(MENUS_GERENTE_POSTO, secao);
+  const idsValidos = MENUS_GERENTE_POSTO.map((m) => m.id);
+
+  if (!idsValidos.includes(secao)) {
+    return <Navigate to={`${PREFIXO_GERENTE}/${MENUS_GERENTE_POSTO[0].id}`} replace />;
+  }
+
+  if (carregandoRede) {
+    return (
+      <article className="card-resumo">
+        <p>Carregando dados da rede...</p>
+      </article>
+    );
+  }
+  if (!rede) {
+    return (
+      <article className="card-resumo">
+        <strong>Nao foi possivel carregar a rede</strong>
+        <p>Verifique se o usuario esta vinculado a uma rede ou faca login novamente.</p>
+      </article>
+    );
+  }
+  if (!idPosto) {
+    return (
+      <article className="card-resumo">
+        <strong>Posto nao identificado</strong>
+        <p>Seu usuario precisa estar vinculado a um posto. Contate o gestor da rede.</p>
+      </article>
+    );
+  }
+
+  const id = menuConfig.id;
+
+  switch (id) {
+    case "usuarios-perfis":
+      return (
+        <>
+          <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
+            Clientes da rede
+          </p>
+          <ClientesPresencaAppSecao redeId={rede.id} />
+          <p className="rede-detalhes__ajuda" style={{ marginTop: 16 }}>
+            Equipe do seu posto
+          </p>
+          <SecaoEquipePosto
+            redeId={rede.id}
+            idPosto={idPosto}
+            nomePosto={nomePostoExibicao || "Seu posto"}
+            onVoltar={() => {}}
+            ocultarNavegacaoVoltar
+          />
+        </>
+      );
+    case "campanhas":
+      return <AbaCampanhas redeId={rede.id} />;
+    case "combustiveis":
+      return <CombustiveisRedeSecao />;
+    case "carteira":
+      return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} somenteLeituraMoeda />;
+    case "gateways-pagamento":
+      return <GestorGatewaysPagamentoSecao rede={rede} />;
+    case "vouchers":
+      return <AbaVouchersRede rede={rede} />;
+    case "app-cards":
+      return <AppCardsRedeSecao redeId={rede.id} />;
+    case "premios":
+      return <AbaPremiosRede redeId={rede.id} />;
+    case "relatorios":
+      return <GestorRedeRelatoriosSecao />;
+    case "configuracoes":
+      return <GestorConfiguracoesSecao />;
+    case "auditoria":
+      return <GestorRedeAuditoriaSecao />;
+    default:
+      return null;
+  }
+}
+
+function GerenteShell({
+  sessao,
+  onSair,
+  itensMenu,
+  rede,
+  carregandoRede,
+  idPosto,
+  nomePostoExibicao,
+  onRedeRefresh
+}) {
+  const { secao } = useParams();
+  const menuConfig = menuPorId(MENUS_GERENTE_POSTO, secao);
+
+  return (
+    <PainelLayout
+      titulo={menuConfig.titulo}
+      subtitulo={menuConfig.subtitulo}
+      usuario={sessao?.usuario}
+      itensMenu={itensMenu}
+      onSair={onSair}
+    >
+      <div className="painel-gestor-rede">
+        {rede ? (
+          <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
+            <strong>{rede.nome_fantasia}</strong> — CNPJ {rede.cnpj || "—"}
+            {nomePostoExibicao || idPosto ? (
+              <>
+                {" "}
+                — Posto: <strong>{nomePostoExibicao || "—"}</strong>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+        <GerenteConteudo
+          rede={rede}
+          carregandoRede={carregandoRede}
+          idPosto={idPosto}
+          nomePostoExibicao={nomePostoExibicao}
+          onRedeRefresh={onRedeRefresh}
+        />
+      </div>
+    </PainelLayout>
+  );
+}
+
 export default function DashboardGerentePostoPagina({ sessao, onSair }) {
-  const itensMenu = useMemo(() => MENUS_GERENTE_POSTO.map((m) => m.nome), []);
-  const [menuAtivo, setMenuAtivo] = useState(() => MENUS_GERENTE_POSTO[0]?.nome ?? "");
+  const itensMenu = useMemo(() => menusComPath(MENUS_GERENTE_POSTO, PREFIXO_GERENTE), []);
   const [rede, setRede] = useState(null);
   const [carregandoRede, setCarregandoRede] = useState(true);
   const [nomePostoExibicao, setNomePostoExibicao] = useState("");
 
   const idPosto = String(sessao?.usuario?.id_posto || "").trim();
-
-  const menuConfig = useMemo(
-    () => MENUS_GERENTE_POSTO.find((m) => m.nome === menuAtivo) || MENUS_GERENTE_POSTO[0],
-    [menuAtivo]
-  );
 
   const onRedeRefresh = useCallback(async () => {
     try {
@@ -90,102 +215,25 @@ export default function DashboardGerentePostoPagina({ sessao, onSair }) {
     };
   }, [rede?.id, idPosto]);
 
-  function renderConteudo() {
-    if (carregandoRede) {
-      return (
-        <article className="card-resumo">
-          <p>Carregando dados da rede...</p>
-        </article>
-      );
-    }
-    if (!rede) {
-      return (
-        <article className="card-resumo">
-          <strong>Nao foi possivel carregar a rede</strong>
-          <p>Verifique se o usuario esta vinculado a uma rede ou faca login novamente.</p>
-        </article>
-      );
-    }
-    if (!idPosto) {
-      return (
-        <article className="card-resumo">
-          <strong>Posto nao identificado</strong>
-          <p>Seu usuario precisa estar vinculado a um posto. Contate o gestor da rede.</p>
-        </article>
-      );
-    }
-
-    const id = menuConfig.id;
-
-    switch (id) {
-      case "usuarios-perfis":
-        return (
-          <>
-            <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
-              Clientes da rede
-            </p>
-            <ClientesPresencaAppSecao redeId={rede.id} />
-            <p className="rede-detalhes__ajuda" style={{ marginTop: 16 }}>
-              Equipe do seu posto
-            </p>
-            <SecaoEquipePosto
-              redeId={rede.id}
-              idPosto={idPosto}
-              nomePosto={nomePostoExibicao || "Seu posto"}
-              onVoltar={() => {}}
-              ocultarNavegacaoVoltar
-            />
-          </>
-        );
-      case "campanhas":
-        return <AbaCampanhas redeId={rede.id} />;
-      case "combustiveis":
-        return <CombustiveisRedeSecao />;
-      case "carteira":
-        return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} somenteLeituraMoeda />;
-      case "gateways-pagamento":
-        return <GestorGatewaysPagamentoSecao />;
-      case "vouchers":
-        return <AbaVouchersRede rede={rede} />;
-      case "app-cards":
-        return <AppCardsRedeSecao redeId={rede.id} />;
-      case "premios":
-        return <AbaPremiosRede redeId={rede.id} />;
-      case "relatorios":
-        return <GestorRedeRelatoriosSecao />;
-      case "configuracoes":
-        return <GestorConfiguracoesSecao />;
-      case "auditoria":
-        return <GestorRedeAuditoriaSecao />;
-      default:
-        return null;
-    }
-  }
-
   return (
-    <PainelLayout
-      titulo={menuConfig.titulo}
-      subtitulo={menuConfig.subtitulo}
-      usuario={sessao?.usuario}
-      itensMenu={itensMenu}
-      itemMenuAtivo={menuAtivo}
-      onSelecionarMenu={setMenuAtivo}
-      onSair={onSair}
-    >
-      <div className="painel-gestor-rede">
-        {rede ? (
-          <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
-            <strong>{rede.nome_fantasia}</strong> — CNPJ {rede.cnpj || "—"}
-            {nomePostoExibicao || idPosto ? (
-              <>
-                {" "}
-                — Posto: <strong>{nomePostoExibicao || "—"}</strong>
-              </>
-            ) : null}
-          </p>
-        ) : null}
-        {renderConteudo()}
-      </div>
-    </PainelLayout>
+    <Routes>
+      <Route index element={<Navigate to={MENUS_GERENTE_POSTO[0].id} replace />} />
+      <Route
+        path=":secao"
+        element={
+          <GerenteShell
+            sessao={sessao}
+            onSair={onSair}
+            itensMenu={itensMenu}
+            rede={rede}
+            carregandoRede={carregandoRede}
+            idPosto={idPosto}
+            nomePostoExibicao={nomePostoExibicao}
+            onRedeRefresh={onRedeRefresh}
+          />
+        }
+      />
+      <Route path="*" element={<Navigate to={MENUS_GERENTE_POSTO[0].id} replace />} />
+    </Routes>
   );
 }

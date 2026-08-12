@@ -1,10 +1,18 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createColumnHelper } from "@tanstack/react-table";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { pathRedeDetalhe } from "../../constantes/rotas";
 import { datetimeLocalParaIso, isoParaDatetimeLocal } from "../../util/dataHoraLocal";
 import { listarCombustiveisRede } from "../../servicos/combustiveisRedeServico";
 import { criarCampanhaRede, editarCampanhaRede, listarCampanhasRede } from "../../servicos/campanhasServico";
 import { criarPostoRede, editarPostoRede, listarPostosRede } from "../../servicos/postosServico";
 import { criarUsuarioEquipe, editarUsuarioEquipe, listarUsuariosRede } from "../../servicos/usuariosRedeServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import Badge from "../../componentes/ui/Badge";
+import Button from "../../componentes/ui/Button";
+import DataTable from "../../componentes/ui/DataTable";
+import Modal, { ModalActions } from "../../componentes/ui/Modal";
 import GestoresRedeGestaoSecao from "./GestoresRedeGestaoSecao";
 import CampanhaDescricaoEditor from "../../componentes/CampanhaDescricaoEditor";
 import CampoComAjuda, { CampoHint, CampoSecaoTitulo } from "../../componentes/CampoComAjuda";
@@ -15,7 +23,34 @@ import AbaVouchersRede from "./AbaVouchersRede";
 import AbaAppMovelRede from "./AbaAppMovelRede";
 import AbaPremiosRede from "./AbaPremiosRede";
 
+function CampoSenhaComOlho({ value, onChange, placeholder, autoComplete = "new-password", required = false }) {
+  const [visivel, setVisivel] = useState(false);
+  return (
+    <div className="campo-senha-olho">
+      <input
+        className="campo__input"
+        type={visivel ? "text" : "password"}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        required={required}
+      />
+      <button
+        type="button"
+        className="campo-senha-olho__btn"
+        aria-label={visivel ? "Ocultar senha" : "Mostrar senha"}
+        title={visivel ? "Ocultar senha" : "Mostrar senha"}
+        onClick={() => setVisivel((v) => !v)}
+      >
+        {visivel ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
+}
+
 const TAMANHO_PAGINA = 10;
+const columnHelper = createColumnHelper();
 
 const ABAS_REDE = [
   { id: "visao-geral", label: "Visao geral" },
@@ -32,6 +67,7 @@ const ABAS_REDE = [
 const estadoInicialEquipe = {
   nome: "",
   email: "",
+  codigo: "",
   telefone: "",
   senha: "",
   confirmar_senha: "",
@@ -259,6 +295,7 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
   const [formEdicao, setFormEdicao] = useState({
     nome: "",
     email: "",
+    codigo: "",
     telefone: "",
     papel: "frentista",
     id_posto: "",
@@ -308,17 +345,12 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
     };
   }, [redeId, papeis, idPosto, pagina, refreshKey, reloadTick]);
 
-  const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO_PAGINA));
-  const offsetAtual = (pagina - 1) * TAMANHO_PAGINA;
-  const inicioExibido = total === 0 ? 0 : offsetAtual + 1;
-  const fimExibido = offsetAtual + itens.length;
-  const colunas = permiteEditarEquipe ? 5 : 4;
-
   async function abrirEdicao(u) {
     setEditandoId(u.id);
     setFormEdicao({
       nome: u.nome || "",
       email: u.email || "",
+      codigo: u.codigo || "",
       telefone: u.telefone || "",
       papel: u.papel || "frentista",
       id_posto: u.id_posto || "",
@@ -349,6 +381,7 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
         papel: formEdicao.papel,
         nome: formEdicao.nome,
         email: formEdicao.email,
+        codigo: formEdicao.codigo,
         telefone: formEdicao.telefone,
         ativo: formEdicao.ativo
       };
@@ -369,58 +402,77 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
     }
   }
 
+  const columns = useMemo(() => {
+    const cols = [
+      columnHelper.accessor("nome", {
+        header: "Nome",
+        cell: (info) => <span className="gp-cell-strong">{info.getValue()}</span>
+      }),
+      columnHelper.accessor("papel", {
+        header: "Papel",
+        cell: (info) => rotuloPapel(info.getValue())
+      }),
+      columnHelper.accessor("ativo", {
+        header: "Status",
+        cell: (info) => (
+          <Badge variant={info.getValue() ? "success" : "danger"}>
+            {info.getValue() ? "Ativo" : "Inativo"}
+          </Badge>
+        )
+      })
+    ];
+    if (permiteEditarEquipe) {
+      cols.push(
+        columnHelper.display({
+          id: "acoes",
+          header: "Acoes",
+          cell: (info) => (
+            <button
+              type="button"
+              className="botao-secundario botao-secundario--compacto"
+              onClick={(e) => {
+                e.stopPropagation();
+                abrirEdicao(info.row.original);
+              }}
+            >
+              Editar
+            </button>
+          )
+        })
+      );
+    }
+    return cols;
+  }, [permiteEditarEquipe, redeId]);
+
+  function itensExpandEquipe(u) {
+    return [
+      { label: "E-mail", value: u.email || "—" },
+      { label: "Código", value: u.codigo || "—" },
+      { label: "Telefone", value: u.telefone || "—" },
+      { label: "Papel", value: rotuloPapel(u.papel) },
+      { label: "Status", value: u.ativo ? "Ativo" : "Inativo" },
+      { label: "Posto vinculado", value: u.id_posto || "—" },
+      { label: "Nome", value: u.nome || "—" }
+    ];
+  }
+
   return (
     <div className="rede-detalhes__subsecao">
-      <div className="tabela-wrap">
-        <table className="tabela-redes tabela-redes--compacta">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Papel</th>
-              <th>Email</th>
-              <th>Status</th>
-              {permiteEditarEquipe ? <th>Acoes</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {itens.map((u) => (
-              <tr key={u.id}>
-                <td>
-                  <span className="tabela-celula__principal">{u.nome}</span>
-                </td>
-                <td>{rotuloPapel(u.papel)}</td>
-                <td>{u.email || "—"}</td>
-                <td>
-                  <span className={`tag-status ${u.ativo ? "tag-status--ativo" : "tag-status--inativo"}`}>
-                    {u.ativo ? "Ativo" : "Inativo"}
-                  </span>
-                </td>
-                {permiteEditarEquipe ? (
-                  <td>
-                    <button
-                      type="button"
-                      className="botao-secundario botao-secundario--compacto"
-                      onClick={() => abrirEdicao(u)}
-                    >
-                      Editar
-                    </button>
-                  </td>
-                ) : null}
-              </tr>
-            ))}
-            {!carregando && itens.length === 0 ? (
-              <tr className="tabela-linha--placeholder">
-                <td colSpan={colunas}>Nenhum usuario nesta categoria.</td>
-              </tr>
-            ) : null}
-            {carregando ? (
-              <tr className="tabela-linha--placeholder">
-                <td colSpan={colunas}>Carregando...</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={itens}
+        getRowId={(row) => row.id}
+        loading={carregando}
+        emptyMessage="Nenhum usuario nesta categoria."
+        showExpandColumn
+        getExpandedItems={itensExpandEquipe}
+        pagination={{
+          page: pagina,
+          pageSize: TAMANHO_PAGINA,
+          total,
+          onPageChange: setPagina
+        }}
+      />
 
       {permiteEditarEquipe && editandoId ? (
         <form className="form-rede form-rede--equipe" onSubmit={onSubmitEdicao} style={{ marginTop: 16 }}>
@@ -456,14 +508,35 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
               onChange={(e) => setFormEdicao((prev) => ({ ...prev, nome: e.target.value }))}
               required
             />
-            <input
-              className="campo__input"
-              type="email"
-              placeholder="Email"
-              value={formEdicao.email}
-              onChange={(e) => setFormEdicao((prev) => ({ ...prev, email: e.target.value }))}
-              required
-            />
+            {formEdicao.papel === "frentista" ? (
+              <input
+                className="campo__input"
+                type="text"
+                placeholder="Código de acesso"
+                value={formEdicao.codigo}
+                onChange={(e) => setFormEdicao((prev) => ({ ...prev, codigo: e.target.value }))}
+                required
+                autoComplete="off"
+              />
+            ) : (
+              <input
+                className="campo__input"
+                type="email"
+                placeholder="Email"
+                value={formEdicao.email}
+                onChange={(e) => setFormEdicao((prev) => ({ ...prev, email: e.target.value }))}
+                required
+              />
+            )}
+            {formEdicao.papel === "frentista" && formEdicao.email ? (
+              <input
+                className="campo__input"
+                type="email"
+                placeholder="E-mail (legado, opcional)"
+                value={formEdicao.email}
+                onChange={(e) => setFormEdicao((prev) => ({ ...prev, email: e.target.value }))}
+              />
+            ) : null}
             <input
               className="campo__input"
               placeholder="Telefone"
@@ -478,18 +551,12 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
               />
               Usuario ativo
             </label>
-            <input
-              className="campo__input"
-              type="password"
-              autoComplete="new-password"
+            <CampoSenhaComOlho
               placeholder="Nova senha (opcional)"
               value={formEdicao.senha}
               onChange={(e) => setFormEdicao((prev) => ({ ...prev, senha: e.target.value }))}
             />
-            <input
-              className="campo__input"
-              type="password"
-              autoComplete="new-password"
+            <CampoSenhaComOlho
               placeholder="Confirmar nova senha"
               value={formEdicao.confirmar_senha}
               onChange={(e) => setFormEdicao((prev) => ({ ...prev, confirmar_senha: e.target.value }))}
@@ -510,33 +577,6 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
           </div>
         </form>
       ) : null}
-
-      <div className="paginacao-rede">
-        <span className="paginacao-rede__info">
-          {carregando ? "Carregando..." : `Exibindo ${inicioExibido}–${fimExibido} de ${total}`}
-        </span>
-        <div className="paginacao-rede__botoes">
-          <button
-            type="button"
-            className="botao-secundario botao-secundario--compacto"
-            disabled={carregando || pagina <= 1}
-            onClick={() => setPagina((p) => Math.max(1, p - 1))}
-          >
-            Anterior
-          </button>
-          <span className="paginacao-rede__pagina">
-            Pagina {pagina} / {totalPaginas}
-          </span>
-          <button
-            type="button"
-            className="botao-secundario botao-secundario--compacto"
-            disabled={carregando || pagina >= totalPaginas}
-            onClick={() => setPagina((p) => p + 1)}
-          >
-            Proxima
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -547,6 +587,17 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
   const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState(estadoInicialEquipe);
 
+  function fecharModalEquipe() {
+    if (salvando) return;
+    setForm(estadoInicialEquipe);
+    setMostrarForm(false);
+  }
+
+  function abrirNovoMembro() {
+    setForm(estadoInicialEquipe);
+    setMostrarForm(true);
+  }
+
   async function onSubmitEquipe(event) {
     event.preventDefault();
     setSalvando(true);
@@ -555,7 +606,8 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
         id_rede: redeId,
         id_posto: idPosto,
         nome: form.nome,
-        email: form.email,
+        email: form.papel === "frentista" ? "" : form.email,
+        codigo: form.papel === "frentista" ? form.codigo : "",
         telefone: form.telefone,
         senha: form.senha,
         confirmar_senha: form.confirmar_senha,
@@ -589,19 +641,29 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
       </div>
 
       <div className="rede-detalhes__linha-titulo rede-detalhes__linha-titulo--fim">
-        <button
-          type="button"
-          className="botao-primario"
-          onClick={() => {
-            setMostrarForm((v) => !v);
-          }}
-        >
-          {mostrarForm ? "Fechar formulario" : "Adicionar membro"}
-        </button>
+        <Button type="button" variant="primary" icon={Plus} onClick={abrirNovoMembro}>
+          Adicionar membro
+        </Button>
       </div>
 
-      {mostrarForm ? (
-        <form className="form-rede form-rede--equipe" onSubmit={onSubmitEquipe}>
+      <Modal
+        open={mostrarForm}
+        onClose={fecharModalEquipe}
+        title="Adicionar membro"
+        description="Cadastre gerente ou frentista vinculado a este posto."
+        size="md"
+        footer={
+          <ModalActions>
+            <Button type="button" variant="outline" onClick={fecharModalEquipe} disabled={salvando}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="form-equipe-membro-modal" variant="primary" disabled={salvando}>
+              {salvando ? "Salvando..." : "Criar usuario"}
+            </Button>
+          </ModalActions>
+        }
+      >
+        <form id="form-equipe-membro-modal" className="form-rede form-rede--equipe" onSubmit={onSubmitEquipe}>
           <div className="form-rede__grid">
             <CampoComAjuda
               rotulo="Perfil"
@@ -627,18 +689,34 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
                 onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
               />
             </CampoComAjuda>
-            <CampoComAjuda
-              rotulo="Email"
-              dica="Email de acesso ao painel para esse usuário."
-            >
-              <input
-                className="campo__input"
-                type="email"
-                placeholder="Email"
-                value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-              />
-            </CampoComAjuda>
+            {form.papel === "frentista" ? (
+              <CampoComAjuda
+                rotulo="Código"
+                dica="Código de acesso do frentista (texto ou números). Único neste posto. Usado no login e na baixa de vouchers."
+              >
+                <input
+                  className="campo__input"
+                  type="text"
+                  placeholder="Código de acesso"
+                  value={form.codigo}
+                  onChange={(e) => setForm((prev) => ({ ...prev, codigo: e.target.value }))}
+                  autoComplete="off"
+                />
+              </CampoComAjuda>
+            ) : (
+              <CampoComAjuda
+                rotulo="Email"
+                dica="Email de acesso ao painel para esse usuário."
+              >
+                <input
+                  className="campo__input"
+                  type="email"
+                  placeholder="Email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                />
+              </CampoComAjuda>
+            )}
             <CampoComAjuda
               rotulo="Telefone"
               dica="Contato do colaborador (opcional)."
@@ -654,10 +732,7 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
               rotulo="Senha"
               dica="Senha inicial de acesso (mínimo de 6 caracteres)."
             >
-              <input
-                className="campo__input"
-                type="password"
-                autoComplete="new-password"
+              <CampoSenhaComOlho
                 placeholder="Senha (min. 6 caracteres)"
                 value={form.senha}
                 onChange={(e) => setForm((prev) => ({ ...prev, senha: e.target.value }))}
@@ -667,33 +742,15 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
               rotulo="Confirmar senha"
               dica="Repita a senha para evitar erro de digitação."
             >
-              <input
-                className="campo__input"
-                type="password"
-                autoComplete="new-password"
+              <CampoSenhaComOlho
                 placeholder="Confirmar senha"
                 value={form.confirmar_senha}
                 onChange={(e) => setForm((prev) => ({ ...prev, confirmar_senha: e.target.value }))}
               />
             </CampoComAjuda>
           </div>
-          <div className="form-rede__acoes">
-            <button className="botao-primario" type="submit" disabled={salvando}>
-              {salvando ? "Salvando..." : "Criar usuario"}
-            </button>
-            <button
-              type="button"
-              className="botao-secundario"
-              onClick={() => {
-                setForm(estadoInicialEquipe);
-                setMostrarForm(false);
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
         </form>
-      ) : null}
+      </Modal>
 
       <ListaUsuariosRedePaginada
         redeId={redeId}
@@ -731,6 +788,19 @@ export function AbaPostos({ redeId }) {
   useEffect(() => {
     carregarPostos();
   }, [redeId]);
+
+  function fecharModalPosto() {
+    if (salvandoPosto) return;
+    setFormPosto(estadoInicialPosto);
+    setPostoEditandoId(null);
+    setMostrarFormPosto(false);
+  }
+
+  function abrirNovoPosto() {
+    setPostoEditandoId(null);
+    setFormPosto(estadoInicialPosto);
+    setMostrarFormPosto(true);
+  }
 
   async function onSubmitPosto(event) {
     event.preventDefault();
@@ -777,6 +847,100 @@ export function AbaPostos({ redeId }) {
     }
   }
 
+  const postosColumns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "unidade",
+        header: "Unidade",
+        cell: (info) => {
+          const p = info.row.original;
+          const principal = (p.nome_fantasia && String(p.nome_fantasia).trim()) || p.nome || "—";
+          return <span className="gp-cell-strong">{principal}</span>;
+        }
+      }),
+      columnHelper.accessor("codigo", {
+        header: "Codigo",
+        cell: (info) => <span className="tabela-num">{info.getValue()}</span>
+      }),
+      columnHelper.accessor("cnpj", {
+        header: "CNPJ",
+        cell: (info) => (
+          <span className="tabela-num">{info.getValue() ? formatarCnpjExibicao(info.getValue()) : "—"}</span>
+        )
+      }),
+      columnHelper.display({
+        id: "cidade",
+        header: "Cidade",
+        cell: (info) => {
+          const p = info.row.original;
+          const cidadeUf = [p.cidade, p.estado].filter(Boolean).join(" / ");
+          return cidadeUf || "—";
+        }
+      }),
+      columnHelper.accessor("logo_url", {
+        header: "Logo",
+        size: 72,
+        cell: (info) =>
+          info.getValue() ? (
+            <img src={info.getValue()} alt="" className="tabela-logo-thumb" loading="lazy" />
+          ) : (
+            "—"
+          )
+      }),
+      columnHelper.display({
+        id: "acoes",
+        header: "Acoes",
+        cell: (info) => {
+          const p = info.row.original;
+          return (
+            <div className="tabela-redes__acoes" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="tabela-btn"
+                onClick={() => {
+                  setPostoEditandoId(p.id);
+                  setFormPosto(linhaPostoParaFormulario(p));
+                  setMostrarFormPosto(true);
+                }}
+              >
+                Editar
+              </button>
+              <button type="button" className="tabela-btn tabela-btn--acento" onClick={() => setPostoEquipe(p)}>
+                Equipe
+              </button>
+            </div>
+          );
+        }
+      })
+    ],
+    []
+  );
+
+  function itensExpandPosto(p) {
+    const endereco = [
+      [p.rua, p.numero].filter(Boolean).join(", "),
+      p.bairro,
+      p.complemento,
+      [p.cidade, p.estado].filter(Boolean).join(" / "),
+      p.cep ? `CEP ${formatarCepExibicao(p.cep)}` : ""
+    ]
+      .filter(Boolean)
+      .join(" — ");
+
+    return [
+      { label: "Endereco completo", value: endereco || "—", wide: true },
+      { label: "Telefone", value: p.telefone || "—" },
+      { label: "E-mail", value: p.email_contato || "—" },
+      { label: "Nome / razao", value: p.nome || "—" },
+      { label: "Nome fantasia", value: p.nome_fantasia || "—" },
+      { label: "Codigo", value: p.codigo || "—" },
+      {
+        label: "CNPJ",
+        value: p.cnpj ? formatarCnpjExibicao(p.cnpj) : "—"
+      }
+    ];
+  }
+
   if (postoEquipe) {
     const nomeExibicao =
       (postoEquipe.nome_fantasia && String(postoEquipe.nome_fantasia).trim()) ||
@@ -800,41 +964,33 @@ export function AbaPostos({ redeId }) {
       </p>
 
       <div className="rede-detalhes__linha-titulo rede-detalhes__linha-titulo--fim">
-        <button
-          type="button"
-          className="botao-primario"
-          onClick={() => {
-            setMostrarFormPosto((aberto) => {
-              if (aberto) {
-                setPostoEditandoId(null);
-                setFormPosto(estadoInicialPosto);
-                return false;
-              }
-              setPostoEditandoId(null);
-              setFormPosto(estadoInicialPosto);
-              return true;
-            });
-          }}
-        >
-          {mostrarFormPosto ? "Fechar formulario" : "Novo posto"}
-        </button>
+        <Button type="button" variant="primary" icon={Plus} onClick={abrirNovoPosto}>
+          Novo posto
+        </Button>
       </div>
 
-      {mostrarFormPosto ? (
-        <form className="form-rede form-rede--equipe" onSubmit={onSubmitPosto}>
-          <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form">
-            {postoEditandoId ? (
-              <>
-                Alterando dados da unidade. Campos obrigatorios: <strong>nome</strong> e <strong>codigo</strong> (unico
-                na rede). CNPJ, se informado, deve ter 14 digitos; CEP, 8 digitos. Logo: envie arquivo ou URL https.
-              </>
-            ) : (
-              <>
-                Campos obrigatorios: <strong>nome</strong> e <strong>codigo</strong> (unico na rede). CNPJ, se informado,
-                deve ter 14 digitos; CEP, 8 digitos. Logo: use <strong>Escolher imagem</strong> ou cole URL https.
-              </>
-            )}
-          </p>
+      <Modal
+        open={mostrarFormPosto}
+        onClose={fecharModalPosto}
+        title={postoEditandoId ? "Editar posto" : "Novo posto"}
+        description={
+          postoEditandoId
+            ? "Campos obrigatorios: nome e codigo (unico na rede). CNPJ, se informado, deve ter 14 digitos; CEP, 8 digitos."
+            : "Campos obrigatorios: nome e codigo (unico na rede). Logo: envie arquivo ou URL https."
+        }
+        size="lg"
+        footer={
+          <ModalActions>
+            <Button type="button" variant="outline" onClick={fecharModalPosto} disabled={salvandoPosto}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="form-posto-modal" variant="primary" disabled={salvandoPosto}>
+              {salvandoPosto ? "Salvando..." : postoEditandoId ? "Salvar alteracoes" : "Criar posto"}
+            </Button>
+          </ModalActions>
+        }
+      >
+        <form id="form-posto-modal" className="form-rede form-rede--equipe" onSubmit={onSubmitPosto}>
           <div className="form-rede__grid">
             <CampoComAjuda
               rotulo="Nome da unidade"
@@ -970,107 +1126,18 @@ export function AbaPostos({ redeId }) {
               />
             </CampoComAjuda>
           </div>
-          <div className="form-rede__acoes">
-            <button className="botao-primario" type="submit" disabled={salvandoPosto}>
-              {salvandoPosto ? "Salvando..." : postoEditandoId ? "Salvar alteracoes" : "Criar posto"}
-            </button>
-            <button
-              type="button"
-              className="botao-secundario"
-              onClick={() => {
-                setFormPosto(estadoInicialPosto);
-                setPostoEditandoId(null);
-                setMostrarFormPosto(false);
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
         </form>
-      ) : null}
+      </Modal>
 
-      <div className="tabela-wrap">
-        <table className="tabela-redes tabela-redes--postos-detalhe">
-          <thead>
-            <tr>
-              <th>Unidade</th>
-              <th>Codigo</th>
-              <th>CNPJ</th>
-              <th>Endereco</th>
-              <th>Contato</th>
-              <th>Logo</th>
-              <th>Acoes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {postos.map((p) => {
-              const linhaEndereco = [
-                [p.rua, p.numero].filter(Boolean).join(", "),
-                p.bairro,
-                [p.cidade, p.estado].filter(Boolean).join(" / "),
-                p.cep ? `CEP ${formatarCepExibicao(p.cep)}` : ""
-              ]
-                .filter(Boolean)
-                .join(" — ");
-              return (
-                <tr key={p.id}>
-                  <td>
-                    <span className="tabela-celula__principal">
-                      {(p.nome_fantasia && String(p.nome_fantasia).trim()) || p.nome}
-                    </span>
-                    {p.nome_fantasia && String(p.nome_fantasia).trim() && p.nome !== p.nome_fantasia ? (
-                      <span className="tabela-celula__sub">{p.nome}</span>
-                    ) : null}
-                  </td>
-                  <td className="tabela-num">{p.codigo}</td>
-                  <td className="tabela-num">{p.cnpj ? formatarCnpjExibicao(p.cnpj) : "—"}</td>
-                  <td>{linhaEndereco || "—"}</td>
-                  <td>
-                    {[p.telefone, p.email_contato].filter(Boolean).join(" · ") || "—"}
-                  </td>
-                  <td className="tabela-celula--logo">
-                    {p.logo_url ? (
-                      <img src={p.logo_url} alt="" className="tabela-logo-thumb" loading="lazy" />
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="tabela-btn"
-                      onClick={() => {
-                        setPostoEditandoId(p.id);
-                        setFormPosto(linhaPostoParaFormulario(p));
-                        setMostrarFormPosto(true);
-                      }}
-                    >
-                      Editar
-                    </button>{" "}
-                    <button
-                      type="button"
-                      className="tabela-btn tabela-btn--acento"
-                      onClick={() => setPostoEquipe(p)}
-                    >
-                      Equipe
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {!carregando && postos.length === 0 ? (
-              <tr className="tabela-linha--placeholder">
-                <td colSpan={7}>Nenhum posto cadastrado. Crie um posto para depois vincular a equipe.</td>
-              </tr>
-            ) : null}
-            {carregando ? (
-              <tr className="tabela-linha--placeholder">
-                <td colSpan={7}>Carregando postos...</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={postosColumns}
+        data={postos}
+        getRowId={(row) => row.id}
+        loading={carregando}
+        emptyMessage="Nenhum posto cadastrado. Crie um posto para depois vincular a equipe."
+        showExpandColumn
+        getExpandedItems={itensExpandPosto}
+      />
     </>
   );
 }
@@ -1083,7 +1150,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
   const [editandoId, setEditandoId] = useState(null);
   const [formCampanha, setFormCampanha] = useState(estadoInicialCampanha);
   const [salvando, setSalvando] = useState(false);
-  const [campanhaExpandidaId, setCampanhaExpandidaId] = useState(null);
+  const [campanhasExpanded, setCampanhasExpanded] = useState({});
   const [combustiveisRede, setCombustiveisRede] = useState([]);
 
   async function carregar() {
@@ -1137,7 +1204,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
   }, [redeId]);
 
   useEffect(() => {
-    setCampanhaExpandidaId(null);
+    setCampanhasExpanded({});
   }, [redeId]);
 
   useEffect(() => {
@@ -1166,6 +1233,13 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
     setEditandoId(null);
     setFormCampanha({ ...estadoInicialCampanha });
     setMostrarForm(true);
+  }
+
+  function fecharModalCampanha() {
+    if (salvando) return;
+    setFormCampanha({ ...estadoInicialCampanha });
+    setEditandoId(null);
+    setMostrarForm(false);
   }
 
   function alternarCombustivelCampanha(id) {
@@ -1351,7 +1425,163 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
     }
   }
 
-  const colSpanTabela = somenteLeitura ? 6 : 7;
+  const campanhasColumns = useMemo(() => {
+    const cols = [
+      columnHelper.display({
+        id: "expand",
+        header: () => null,
+        size: 40,
+        cell: ({ row }) => (
+          <button
+            type="button"
+            className="gp-expand-btn"
+            aria-expanded={row.getIsExpanded()}
+            aria-label={
+              row.getIsExpanded()
+                ? "Ocultar escopo, desconto e demais dados"
+                : "Ver escopo, desconto e demais dados"
+            }
+            onClick={() => row.toggleExpanded()}
+          >
+            {row.getIsExpanded() ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+        )
+      }),
+      columnHelper.display({
+        id: "promocao",
+        header: "Promocao",
+        cell: (info) => {
+          const c = info.row.original;
+          return (
+            <div className="tabela-celula--stack">
+              <span className="gp-cell-strong">{c.titulo_exibicao || c.nome}</span>
+              {c.titulo && c.nome && c.titulo !== c.nome ? (
+                <span className="tabela-celula__sub">{c.nome}</span>
+              ) : null}
+            </div>
+          );
+        }
+      }),
+      columnHelper.display({
+        id: "canais",
+        header: "Canais",
+        cell: (info) => rotuloCanaisCampanha(info.row.original)
+      }),
+      columnHelper.display({
+        id: "beneficio",
+        header: "Beneficio",
+        cell: (info) => {
+          const c = info.row.original;
+          return (
+            <div className="tabela-celula--stack">
+              <span className={classeTagTipoBeneficio(c)}>{rotuloTipoBeneficioCampanha(c)}</span>
+              <span className="tabela-celula__sub">{resumoBeneficioCampanha(c)}</span>
+            </div>
+          );
+        }
+      }),
+      columnHelper.display({
+        id: "vigencia",
+        header: "Vigencia",
+        cell: (info) => {
+          const c = info.row.original;
+          return (
+            <div className="tabela-celula--stack">
+              {c.vigencia_inicio ? new Date(c.vigencia_inicio).toLocaleString() : "—"}
+              <span className="tabela-celula__sub">
+                ate {c.vigencia_fim ? new Date(c.vigencia_fim).toLocaleString() : "—"}
+              </span>
+            </div>
+          );
+        }
+      }),
+      columnHelper.accessor("status", {
+        header: "Status",
+        cell: (info) => (
+          <Badge variant={info.getValue() === "ATIVA" ? "success" : "danger"}>
+            {rotuloStatusCampanha(info.getValue())}
+          </Badge>
+        )
+      })
+    ];
+    if (!somenteLeitura) {
+      cols.push(
+        columnHelper.display({
+          id: "acoes",
+          header: "Acoes",
+          cell: (info) => (
+            <button type="button" className="tabela-btn" onClick={() => abrirEditar(info.row.original)}>
+              Editar
+            </button>
+          )
+        })
+      );
+    }
+    return cols;
+  }, [somenteLeitura]);
+
+  function renderCampanhaExpandida(c) {
+    return (
+      <div className="tabela-redes__detalhe-grid" role="region" aria-label="Detalhes da campanha">
+        <div className="tabela-redes__detalhe-item">
+          <span className="tabela-redes__detalhe-label">Escopo do posto</span>
+          <span className="tabela-redes__detalhe-valor">
+            {c.escopo === "posto" ? "Posto especifico" : "Rede inteira"}
+          </span>
+        </div>
+        <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
+          <span className="tabela-redes__detalhe-label">Beneficio</span>
+          <span className="tabela-redes__detalhe-valor">
+            {rotuloTipoBeneficioCampanha(c)} - {resumoBeneficioCampanha(c)}
+            {c.modalidade_desconto && c.modalidade_desconto !== "NENHUM" ? (
+              <span className="tabela-celula__sub"> — {rotuloBaseDesconto(c.base_desconto)}</span>
+            ) : null}
+          </span>
+        </div>
+        {(c.base_desconto || "").toUpperCase() === "VALOR_COMPRA" ? (
+          <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
+            <span className="tabela-redes__detalhe-label">Faixa do valor do voucher (R$)</span>
+            <span className="tabela-redes__detalhe-valor tabela-num">
+              {c.valor_minimo_compra != null && c.valor_maximo_compra != null
+                ? `R$ ${Number(c.valor_minimo_compra).toFixed(2)} a R$ ${Number(c.valor_maximo_compra).toFixed(2)}`
+                : c.valor_minimo_compra != null
+                  ? `A partir de R$ ${Number(c.valor_minimo_compra).toFixed(2)} (sem teto no cadastro)`
+                  : "—"}
+            </span>
+          </div>
+        ) : null}
+        <div className="tabela-redes__detalhe-item">
+          <span className="tabela-redes__detalhe-label">Usos por cliente</span>
+          <span className="tabela-redes__detalhe-valor">{rotuloLimiteUsosCampanha(c)}</span>
+        </div>
+        {(c.base_desconto || "").toUpperCase() === "LITRO" ? (
+          <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
+            <span className="tabela-redes__detalhe-label">Campanha por litro</span>
+            <span className="tabela-redes__detalhe-valor">
+              Faixa:{" "}
+              {c.litros_min != null && c.litros_max != null ? `${c.litros_min} a ${c.litros_max} L` : "—"}
+              {Array.isArray(c.ids_combustiveis_rede) && c.ids_combustiveis_rede.length ? (
+                <span className="tabela-celula__sub">
+                  {" "}
+                  · {c.ids_combustiveis_rede.length} combustivel(is) no escopo
+                </span>
+              ) : null}
+            </span>
+          </div>
+        ) : null}
+        <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--imagem">
+          <span className="tabela-redes__detalhe-label">Imagem</span>
+          <span className="tabela-redes__detalhe-valor">
+            {c.imagem_url ? (
+              <img src={c.imagem_url} alt="" className="tabela-campanha__img-expandida" loading="lazy" />
+            ) : (
+              "—"
+            )}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -1372,26 +1602,31 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       </p>
       {!somenteLeitura ? (
         <div className="rede-detalhes__linha-titulo rede-detalhes__linha-titulo--fim">
-          <button
-            type="button"
-            className="botao-primario"
-            onClick={() => {
-              if (mostrarForm) {
-                setMostrarForm(false);
-                setEditandoId(null);
-                setFormCampanha({ ...estadoInicialCampanha });
-              } else {
-                abrirNovo();
-              }
-            }}
-          >
-            {mostrarForm ? "Fechar formulario" : "Nova campanha"}
-          </button>
+          <Button type="button" variant="primary" icon={Plus} onClick={abrirNovo}>
+            Nova campanha
+          </Button>
         </div>
       ) : null}
 
-      {!somenteLeitura && mostrarForm ? (
-        <form className="form-rede form-rede--equipe" onSubmit={onSubmitCampanha}>
+      {!somenteLeitura ? (
+        <Modal
+          open={mostrarForm}
+          onClose={fecharModalCampanha}
+          title={editandoId ? "Editar campanha" : "Nova campanha"}
+          description="Datas em horario local (API em UTC). Cashback exige modalidade percentual. Imagem: arquivo ou URL https."
+          size="lg"
+          footer={
+            <ModalActions>
+              <Button type="button" variant="outline" onClick={fecharModalCampanha} disabled={salvando}>
+                Cancelar
+              </Button>
+              <Button type="submit" form="form-campanha-modal" variant="primary" disabled={salvando}>
+                {salvando ? "Salvando..." : editandoId ? "Salvar alteracoes" : "Criar campanha"}
+              </Button>
+            </ModalActions>
+          }
+        >
+        <form id="form-campanha-modal" className="form-rede form-rede--equipe" onSubmit={onSubmitCampanha}>
           <CampoHint>
             Datas em horario local; a API envia em UTC (ISO8601). Para cashback, use modalidade percentual. Sem desconto:
             modalidade &quot;Nenhum&quot; e valor do desconto 0. Percentual: 0-100. Limite de usos: vazio = sem limite ate
@@ -1684,196 +1919,45 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
               />
             </div>
           </div>
-          <div className="form-rede__acoes">
-            <button className="botao-primario" type="submit" disabled={salvando}>
-              {salvando ? "Salvando..." : editandoId ? "Salvar alteracoes" : "Criar campanha"}
-            </button>
-            <button
-              type="button"
-              className="botao-secundario"
-              onClick={() => {
-                setFormCampanha({ ...estadoInicialCampanha });
-                setEditandoId(null);
-                setMostrarForm(false);
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
         </form>
+        </Modal>
       ) : null}
 
-      <div className="tabela-wrap tabela-wrap--campanhas">
-        <table className="tabela-redes tabela-redes--compacta tabela-redes--campanhas-principal">
-          <thead>
-            <tr>
-              <th className="tabela-redes__th-expand" scope="col" aria-label="Mais detalhes" />
-              <th>Promocao</th>
-              <th>Canais</th>
-              <th>Beneficio</th>
-              <th>Vigencia</th>
-              <th>Status</th>
-              {somenteLeitura ? null : <th>Acoes</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {campanhas.map((c) => {
-              const aberta = campanhaExpandidaId === c.id;
-              return (
-                <Fragment key={c.id}>
-                  <tr className={aberta ? "tabela-redes__linha--aberta" : undefined}>
-                    <td className="tabela-redes__col-expand">
-                      <button
-                        type="button"
-                        className="tabela-redes__expand"
-                        aria-expanded={aberta}
-                        aria-label={
-                          aberta ? "Ocultar escopo, desconto e demais dados" : "Ver escopo, desconto e demais dados"
-                        }
-                        onClick={() =>
-                          setCampanhaExpandidaId((id) => (id === c.id ? null : c.id))
-                        }
-                      >
-                        <span className="tabela-redes__expand-ico" aria-hidden>
-                          {aberta ? "▼" : "▶"}
-                        </span>
-                      </button>
-                    </td>
-                    <td className="tabela-campanha__col-promo">
-                      <span className="tabela-celula__principal">{c.titulo_exibicao || c.nome}</span>
-                      {c.titulo && c.nome && c.titulo !== c.nome ? (
-                        <span className="tabela-celula__sub">{c.nome}</span>
-                      ) : null}
-                    </td>
-                    <td>{rotuloCanaisCampanha(c)}</td>
-                    <td className="tabela-celula--stack">
-                      <span className={classeTagTipoBeneficio(c)}>{rotuloTipoBeneficioCampanha(c)}</span>
-                      <span className="tabela-celula__sub">{resumoBeneficioCampanha(c)}</span>
-                    </td>
-                    <td className="tabela-celula--stack tabela-campanha__col-vigencia">
-                      {c.vigencia_inicio ? new Date(c.vigencia_inicio).toLocaleString() : "—"}
-                      <span className="tabela-celula__sub">
-                        ate {c.vigencia_fim ? new Date(c.vigencia_fim).toLocaleString() : "—"}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={`tag-status ${c.status === "ATIVA" ? "tag-status--ativo" : "tag-status--inativo"}`}
-                      >
-                        {rotuloStatusCampanha(c.status)}
-                      </span>
-                    </td>
-                    {somenteLeitura ? null : (
-                      <td>
-                        <button type="button" className="tabela-btn" onClick={() => abrirEditar(c)}>
-                          Editar
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                  {aberta ? (
-                    <tr className="tabela-redes__linha-detalhe">
-                      <td colSpan={colSpanTabela}>
-                        <div
-                          className="tabela-redes__detalhe-grid"
-                          role="region"
-                          aria-label="Detalhes da campanha"
-                        >
-                          <div className="tabela-redes__detalhe-item">
-                            <span className="tabela-redes__detalhe-label">Escopo do posto</span>
-                            <span className="tabela-redes__detalhe-valor">
-                              {c.escopo === "posto" ? "Posto especifico" : "Rede inteira"}
-                            </span>
-                          </div>
-                          <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
-                            <span className="tabela-redes__detalhe-label">Beneficio</span>
-                            <span className="tabela-redes__detalhe-valor">
-                              {rotuloTipoBeneficioCampanha(c)} - {resumoBeneficioCampanha(c)}
-                              {c.modalidade_desconto && c.modalidade_desconto !== "NENHUM" ? (
-                                <span className="tabela-celula__sub"> — {rotuloBaseDesconto(c.base_desconto)}</span>
-                              ) : null}
-                            </span>
-                          </div>
-                          {(c.base_desconto || "").toUpperCase() === "VALOR_COMPRA" ? (
-                            <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
-                              <span className="tabela-redes__detalhe-label">Faixa do valor do voucher (R$)</span>
-                              <span className="tabela-redes__detalhe-valor tabela-num">
-                                {c.valor_minimo_compra != null && c.valor_maximo_compra != null
-                                  ? `R$ ${Number(c.valor_minimo_compra).toFixed(2)} a R$ ${Number(
-                                      c.valor_maximo_compra
-                                    ).toFixed(2)}`
-                                  : c.valor_minimo_compra != null
-                                    ? `A partir de R$ ${Number(c.valor_minimo_compra).toFixed(2)} (sem teto no cadastro)`
-                                    : "—"}
-                              </span>
-                            </div>
-                          ) : null}
-                          <div className="tabela-redes__detalhe-item">
-                            <span className="tabela-redes__detalhe-label">Usos por cliente</span>
-                            <span className="tabela-redes__detalhe-valor">{rotuloLimiteUsosCampanha(c)}</span>
-                          </div>
-                          {(c.base_desconto || "").toUpperCase() === "LITRO" ? (
-                            <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--wide">
-                              <span className="tabela-redes__detalhe-label">Campanha por litro</span>
-                              <span className="tabela-redes__detalhe-valor">
-                                Faixa:{" "}
-                                {c.litros_min != null && c.litros_max != null
-                                  ? `${c.litros_min} a ${c.litros_max} L`
-                                  : "—"}
-                                {Array.isArray(c.ids_combustiveis_rede) && c.ids_combustiveis_rede.length ? (
-                                  <span className="tabela-celula__sub">
-                                    {" "}
-                                    · {c.ids_combustiveis_rede.length} combustivel(is) no escopo
-                                  </span>
-                                ) : null}
-                              </span>
-                            </div>
-                          ) : null}
-                          <div className="tabela-redes__detalhe-item tabela-redes__detalhe-item--imagem">
-                            <span className="tabela-redes__detalhe-label">Imagem</span>
-                            <span className="tabela-redes__detalhe-valor">
-                              {c.imagem_url ? (
-                                <img
-                                  src={c.imagem_url}
-                                  alt=""
-                                  className="tabela-campanha__img-expandida"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                "—"
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                </Fragment>
-              );
-            })}
-            {!carregando && campanhas.length === 0 ? (
-              <tr className="tabela-linha--placeholder">
-                <td colSpan={colSpanTabela}>Nenhuma campanha cadastrada.</td>
-              </tr>
-            ) : null}
-            {carregando ? (
-              <tr className="tabela-linha--placeholder">
-                <td colSpan={colSpanTabela}>Carregando campanhas...</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={campanhasColumns}
+        data={campanhas}
+        getRowId={(row) => row.id}
+        loading={carregando}
+        emptyMessage="Nenhuma campanha cadastrada."
+        expanded={campanhasExpanded}
+        onExpandedChange={setCampanhasExpanded}
+        getRowCanExpand={() => true}
+        renderExpandedRow={renderCampanhaExpandida}
+      />
     </>
   );
 }
 
-export default function RedeDetalhesSecao({ rede, onVoltar, onEditarRede, onRedeRefresh }) {
-  const [abaAtiva, setAbaAtiva] = useState("visao-geral");
+export default function RedeDetalhesSecao({
+  rede,
+  onVoltar,
+  onEditarRede,
+  onRedeRefresh,
+  abaInicial
+}) {
+  const navigate = useNavigate();
+  const abaValida = ABAS_REDE.some((a) => a.id === abaInicial) ? abaInicial : "visao-geral";
+  const [abaAtiva, setAbaAtiva] = useState(abaValida);
 
   useEffect(() => {
-    setAbaAtiva("visao-geral");
-  }, [rede.id]);
+    const proxima = ABAS_REDE.some((a) => a.id === abaInicial) ? abaInicial : "visao-geral";
+    setAbaAtiva(proxima || "visao-geral");
+  }, [rede.id, abaInicial]);
+
+  function selecionarAba(idAba) {
+    setAbaAtiva(idAba);
+    navigate(pathRedeDetalhe(rede.id, idAba), { replace: true });
+  }
 
   const redeContexto = useMemo(
     () => ({
@@ -1915,7 +1999,7 @@ export default function RedeDetalhesSecao({ rede, onVoltar, onEditarRede, onRede
               aria-selected={abaAtiva === aba.id}
               aria-controls={`rede-painel-${aba.id}`}
               className={`rede-detalhes__tab ${abaAtiva === aba.id ? "rede-detalhes__tab--ativa" : ""}`}
-              onClick={() => setAbaAtiva(aba.id)}
+              onClick={() => selecionarAba(aba.id)}
             >
               {aba.label}
             </button>

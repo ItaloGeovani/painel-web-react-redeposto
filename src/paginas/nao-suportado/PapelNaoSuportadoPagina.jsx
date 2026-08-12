@@ -6,7 +6,7 @@ export default function PapelNaoSuportadoPagina({ sessao, onSair }) {
       titulo="Painel em construcao"
       subtitulo="Este tipo de usuario ainda nao possui dashboard dedicado."
       usuario={sessao?.usuario}
-      itensMenu={["Inicio"]}
+      itensMenu={[{ nome: "Inicio", path: "/nao-suportado", end: true }]}
       onSair={onSair}
     >
       <div className="card-resumo">

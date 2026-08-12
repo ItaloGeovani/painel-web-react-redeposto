@@ -1,14 +1,19 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createColumnHelper } from "@tanstack/react-table";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { gestorRedeLogado, superAdminLogado } from "../../configuracao/painelApi";
 import { atualizarConfigVoucherRede, listarVouchersRede } from "../../servicos/redesServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import Badge from "../../componentes/ui/Badge";
+import DataTable from "../../componentes/ui/DataTable";
 
 const LIMITE_LISTA = 40;
-const TABELA_VOUCHERS_COLS = 8;
+const columnHelper = createColumnHelper();
 
 const FILTROS_STATUS = [
   { value: "", label: "Todos os status" },
   { value: "AGUARDANDO_PAGAMENTO", label: "Aguardando PIX" },
+  { value: "AGUARDANDO_DINHEIRO", label: "Aguardando dinheiro" },
   { value: "ATIVO", label: "Ativo" },
   { value: "USADO", label: "Usado" },
   { value: "EXPIRADO", label: "Expirado" },
@@ -49,20 +54,20 @@ function fmtLitros(v) {
   return `${n.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} L`;
 }
 
-function classeStatus(status) {
+function badgeVariantStatus(status) {
   switch (status) {
     case "AGUARDANDO_PAGAMENTO":
-      return "aba-vouchers__status aba-vouchers__status--pendente";
+    case "AGUARDANDO_DINHEIRO":
+      return "warning";
     case "ATIVO":
-      return "aba-vouchers__status aba-vouchers__status--ativo";
+      return "success";
     case "USADO":
-      return "aba-vouchers__status aba-vouchers__status--usado";
+      return "neutral";
     case "EXPIRADO":
-      return "aba-vouchers__status aba-vouchers__status--expirado";
     case "CANCELADO":
-      return "aba-vouchers__status aba-vouchers__status--cancelado";
+      return "danger";
     default:
-      return "aba-vouchers__status";
+      return "neutral";
   }
 }
 
@@ -106,9 +111,10 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
   const [erroLista, setErroLista] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState("");
   const [offset, setOffset] = useState(0);
-  const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const [expanded, setExpanded] = useState({});
 
   const podeEditar = gestorRedeLogado() || superAdminLogado();
+  const paginaAtual = Math.floor(offset / LIMITE_LISTA) + 1;
 
   useEffect(() => {
     setDias(String(valorNumOuPadrao(rede.voucher_dias_validade_resgate, 7)));
@@ -124,7 +130,7 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
   }, [filtroStatus, rede.id]);
 
   useEffect(() => {
-    setExpandedIds(new Set());
+    setExpanded({});
   }, [offset, filtroStatus, rede.id]);
 
   const carregarLista = useCallback(async () => {
@@ -187,25 +193,166 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
     }
   }
 
-  const paginaAtual = Math.floor(offset / LIMITE_LISTA) + 1;
-  const totalPaginas = Math.max(1, Math.ceil(totalLista / LIMITE_LISTA));
-  const temAnterior = offset > 0;
-  const temProxima = offset + LIMITE_LISTA < totalLista;
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "expand",
+        header: () => null,
+        size: 40,
+        cell: ({ row }) => (
+          <button
+            type="button"
+            className="gp-expand-btn"
+            aria-expanded={row.getIsExpanded()}
+            title={row.getIsExpanded() ? "Recolher detalhes" : "Ver detalhes completos"}
+            aria-label={
+              row.getIsExpanded() ? "Recolher detalhes do voucher" : "Expandir detalhes do voucher"
+            }
+            onClick={() => row.toggleExpanded()}
+          >
+            {row.getIsExpanded() ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+        )
+      }),
+      columnHelper.accessor("status", {
+        header: "Status",
+        cell: (info) => (
+          <Badge variant={badgeVariantStatus(info.getValue())}>{rotuloStatus(info.getValue())}</Badge>
+        )
+      }),
+      columnHelper.accessor("cliente_nome_completo", {
+        header: "Cliente",
+        cell: (info) => <strong className="gp-cell-strong">{info.getValue() || "—"}</strong>
+      }),
+      columnHelper.display({
+        id: "frentista",
+        header: "Frentista (baixa)",
+        cell: (info) => {
+          const v = info.row.original;
+          return (
+            <div className="tabela-celula--stack">
+              <span className="gp-cell-strong">{textoOperadorBaixa(v)}</span>
+              {v.status === "USADO" && v.operador_usuario_id ? (
+                <div className="tabela-redes__sub" title="ID do usuário que deu baixa">
+                  {v.operador_usuario_id}
+                </div>
+              ) : null}
+            </div>
+          );
+        }
+      }),
+      columnHelper.display({
+        id: "tipo",
+        header: "Tipo",
+        cell: (info) => {
+          const v = info.row.original;
+          return (
+            <div className="tabela-celula--stack">
+              <span className="gp-cell-strong">{rotuloTipoCompra(v.tipo_compra)}</span>
+              {v.campanha_titulo ? <div className="tabela-redes__sub">{v.campanha_titulo}</div> : null}
+            </div>
+          );
+        }
+      }),
+      columnHelper.accessor("valor_solicitado", {
+        header: "Total pedido",
+        cell: (info) => <span className="tabela-num">{fmtMoeda(info.getValue())}</span>
+      }),
+      columnHelper.accessor("valor_final", {
+        header: "Pago (PIX)",
+        cell: (info) => <span className="tabela-num">{fmtMoeda(info.getValue())}</span>
+      }),
+      columnHelper.accessor("criado_em", {
+        header: "Criado",
+        cell: (info) => fmtDataHora(info.getValue())
+      })
+    ],
+    []
+  );
 
-  function alternarExpandido(id) {
-    const sid = String(id || "");
-    if (!sid) {
-      return;
-    }
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(sid)) {
-        next.delete(sid);
-      } else {
-        next.add(sid);
-      }
-      return next;
-    });
+  function renderVoucherExpandido(v) {
+    return (
+      <div className="aba-vouchers__detalhe">
+        <dl className="aba-vouchers__detalhe-grid">
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Desconto (campanha)</dt>
+            <dd>{fmtMoeda(v.desconto_aplicado)}</dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Litros</dt>
+            <dd>{fmtLitros(v.litros)}</dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Combustível</dt>
+            <dd>
+              {v.combustivel_rede_nome?.trim()
+                ? v.combustivel_rede_nome.trim()
+                : v.id_combustivel_rede
+                  ? `— (id ${v.id_combustivel_rede})`
+                  : "—"}
+            </dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Código de resgate</dt>
+            <dd>
+              <span className="aba-vouchers__codigo">{v.codigo_resgate || "—"}</span>
+            </dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Expira pagamento PIX</dt>
+            <dd>{fmtDataHora(v.expira_pagamento_em)}</dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Válido no posto até</dt>
+            <dd>{fmtDataHora(v.expira_resgate_em)}</dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Usado em</dt>
+            <dd>{fmtDataHora(v.usado_em)}</dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Frentista ou responsável (baixa)</dt>
+            <dd>
+              {textoOperadorBaixa(v)}
+              {v.operador_usuario_id ? (
+                <>
+                  {" "}
+                  <span className="aba-vouchers__codigo" title="ID do usuário que registrou a baixa">
+                    {v.operador_usuario_id}
+                  </span>
+                </>
+              ) : null}
+            </dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Posto (cadastro)</dt>
+            <dd>{v.posto_uso_nome || "—"}</dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>ID da compra</dt>
+            <dd>
+              <span className="aba-vouchers__codigo">{v.id || "—"}</span>
+            </dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Cliente (usuário)</dt>
+            <dd>
+              <span className="aba-vouchers__codigo">{v.usuario_id || "—"}</span>
+            </dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Campanha (id)</dt>
+            <dd>
+              <span className="aba-vouchers__codigo">{v.id_campanha || "—"}</span>
+            </dd>
+          </div>
+          <div className="aba-vouchers__detalhe-item">
+            <dt>Atualizado em</dt>
+            <dd>{fmtDataHora(v.atualizado_em)}</dd>
+          </div>
+        </dl>
+      </div>
+    );
   }
 
   return (
@@ -264,7 +411,8 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
         ) : (
           <div className="form-rede__grid" style={{ marginTop: 8 }}>
             <p className="rede-detalhes__ajuda">
-              <strong>Dias no posto (apos PIX):</strong> {dias} — <strong>Minutos para pagar o PIX:</strong> {minutos}
+              <strong>Dias no posto (apos PIX):</strong> {dias} — <strong>Minutos para pagar o PIX:</strong>{" "}
+              {minutos}
             </p>
             <p className="rede-detalhes__ajuda" style={{ marginTop: 8 }}>
               Somente o <strong>gestor da rede</strong> (ou o administrador da plataforma) altera estes prazos.
@@ -278,8 +426,8 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
           Vouchers da rede <span className="aba-vouchers__lista-nome">{rede.nome_fantasia}</span>
         </h3>
         <p className="rede-detalhes__ajuda">
-          Compras via app com PIX: use o botão <strong>+</strong> em cada linha para ver litros, combustível,
-          descontos, códigos e demais datas. A lista principal mostra só o essencial.
+          Compras via app com PIX: use o botão de expandir em cada linha para ver litros, combustível, descontos,
+          códigos e demais datas. A lista principal mostra só o essencial.
         </p>
 
         <div className="aba-vouchers__toolbar">
@@ -302,25 +450,6 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
             <button
               type="button"
               className="tabela-btn tabela-btn--outline"
-              disabled={!temAnterior || carregandoLista}
-              onClick={() => setOffset((o) => Math.max(0, o - LIMITE_LISTA))}
-            >
-              Anterior
-            </button>
-            <span className="aba-vouchers__pager-info">
-              Pagina {paginaAtual} de {totalPaginas} ({totalLista} registro{totalLista === 1 ? "" : "s"})
-            </span>
-            <button
-              type="button"
-              className="tabela-btn tabela-btn--outline"
-              disabled={!temProxima || carregandoLista}
-              onClick={() => setOffset((o) => o + LIMITE_LISTA)}
-            >
-              Proxima
-            </button>
-            <button
-              type="button"
-              className="tabela-btn tabela-btn--outline"
               disabled={carregandoLista}
               onClick={() => carregarLista()}
             >
@@ -335,173 +464,27 @@ export default function AbaVouchersRede({ rede, onSalvo }) {
           </p>
         ) : null}
 
-        {carregandoLista && !vouchers.length ? (
-          <div className="aba-vouchers__lista-vazia" aria-live="polite">
-            Carregando vouchers...
-          </div>
-        ) : null}
-
-        {!carregandoLista && !vouchers.length && !erroLista ? (
-          <div className="aba-vouchers__lista-vazia" aria-live="polite">
-            Nenhum voucher encontrado{filtroStatus ? ` com status “${rotuloStatus(filtroStatus)}”.` : " para esta rede."}
-          </div>
-        ) : null}
-
-        {vouchers.length > 0 ? (
-          <div className="tabela-wrap aba-vouchers__tabela-wrap">
-            <table className="tabela-redes tabela-redes--compacta">
-              <thead>
-                <tr>
-                  <th className="tabela-num" aria-label="Expandir detalhes" />
-                  <th>Status</th>
-                  <th>Cliente</th>
-                  <th>Frentista (baixa)</th>
-                  <th>Tipo</th>
-                  <th className="tabela-num">Total pedido</th>
-                  <th className="tabela-num">Pago (PIX)</th>
-                  <th>Criado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vouchers.map((v) => {
-                  const vid = String(v.id || "");
-                  const aberto = expandedIds.has(vid);
-                  return (
-                    <Fragment key={vid}>
-                      <tr>
-                        <td className="tabela-num">
-                          <button
-                            type="button"
-                            className="aba-vouchers__expand-btn"
-                            aria-expanded={aberto}
-                            title={aberto ? "Recolher detalhes" : "Ver detalhes completos"}
-                            aria-label={
-                              aberto ? "Recolher detalhes do voucher" : "Expandir detalhes do voucher"
-                            }
-                            onClick={() => alternarExpandido(vid)}
-                          >
-                            {aberto ? "−" : "+"}
-                          </button>
-                        </td>
-                        <td>
-                          <span className={classeStatus(v.status)}>{rotuloStatus(v.status)}</span>
-                        </td>
-                        <td>
-                          <strong className="tabela-celula__principal">{v.cliente_nome_completo || "—"}</strong>
-                        </td>
-                        <td>
-                          <span className="tabela-celula__principal">{textoOperadorBaixa(v)}</span>
-                          {v.status === "USADO" && v.operador_usuario_id ? (
-                            <div className="tabela-redes__sub" title="ID do usuário que deu baixa">
-                              {v.operador_usuario_id}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td>
-                          <span className="tabela-celula__principal">{rotuloTipoCompra(v.tipo_compra)}</span>
-                          {v.campanha_titulo ? (
-                            <div className="tabela-redes__sub">{v.campanha_titulo}</div>
-                          ) : null}
-                        </td>
-                        <td className="tabela-num">{fmtMoeda(v.valor_solicitado)}</td>
-                        <td className="tabela-num">{fmtMoeda(v.valor_final)}</td>
-                        <td>{fmtDataHora(v.criado_em)}</td>
-                      </tr>
-                      {aberto ? (
-                        <tr className="aba-vouchers__row-detalhe">
-                          <td colSpan={TABELA_VOUCHERS_COLS}>
-                            <div className="aba-vouchers__detalhe">
-                              <dl className="aba-vouchers__detalhe-grid">
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Desconto (campanha)</dt>
-                                  <dd>{fmtMoeda(v.desconto_aplicado)}</dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Litros</dt>
-                                  <dd>{fmtLitros(v.litros)}</dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Combustível</dt>
-                                  <dd>
-                                    {v.combustivel_rede_nome?.trim()
-                                      ? v.combustivel_rede_nome.trim()
-                                      : v.id_combustivel_rede
-                                        ? `— (id ${v.id_combustivel_rede})`
-                                        : "—"}
-                                  </dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Código de resgate</dt>
-                                  <dd>
-                                    <span className="aba-vouchers__codigo">{v.codigo_resgate || "—"}</span>
-                                  </dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Expira pagamento PIX</dt>
-                                  <dd>{fmtDataHora(v.expira_pagamento_em)}</dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Válido no posto até</dt>
-                                  <dd>{fmtDataHora(v.expira_resgate_em)}</dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Usado em</dt>
-                                  <dd>{fmtDataHora(v.usado_em)}</dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Frentista ou responsável (baixa)</dt>
-                                  <dd>
-                                    {textoOperadorBaixa(v)}
-                                    {v.operador_usuario_id ? (
-                                      <>
-                                        {" "}
-                                        <span className="aba-vouchers__codigo" title="ID do usuário que registrou a baixa">
-                                          {v.operador_usuario_id}
-                                        </span>
-                                      </>
-                                    ) : null}
-                                  </dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Posto (cadastro)</dt>
-                                  <dd>{v.posto_uso_nome || "—"}</dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>ID da compra</dt>
-                                  <dd>
-                                    <span className="aba-vouchers__codigo">{v.id || "—"}</span>
-                                  </dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Cliente (usuário)</dt>
-                                  <dd>
-                                    <span className="aba-vouchers__codigo">{v.usuario_id || "—"}</span>
-                                  </dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Campanha (id)</dt>
-                                  <dd>
-                                    <span className="aba-vouchers__codigo">
-                                      {v.id_campanha || "—"}
-                                    </span>
-                                  </dd>
-                                </div>
-                                <div className="aba-vouchers__detalhe-item">
-                                  <dt>Atualizado em</dt>
-                                  <dd>{fmtDataHora(v.atualizado_em)}</dd>
-                                </div>
-                              </dl>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
+        <DataTable
+          columns={columns}
+          data={vouchers}
+          getRowId={(row) => row.id}
+          loading={carregandoLista}
+          emptyMessage={
+            filtroStatus
+              ? `Nenhum voucher encontrado com status “${rotuloStatus(filtroStatus)}”.`
+              : "Nenhum voucher encontrado para esta rede."
+          }
+          pagination={{
+            page: paginaAtual,
+            pageSize: LIMITE_LISTA,
+            total: totalLista,
+            onPageChange: (page) => setOffset((page - 1) * LIMITE_LISTA)
+          }}
+          expanded={expanded}
+          onExpandedChange={setExpanded}
+          getRowCanExpand={() => true}
+          renderExpandedRow={renderVoucherExpandido}
+        />
       </section>
 
       <article className="aba-vouchers__doc-card">

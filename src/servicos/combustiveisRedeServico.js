@@ -1,47 +1,5 @@
-import { montarUrlApi } from "../configuracao/apiConfig";
 import { prefixoApiRedeGestorOuGerente } from "../configuracao/painelApi";
-import { limparSessao } from "./sessaoServico";
-
-function obterHeadersAutenticados() {
-  const token = localStorage.getItem("gaspass_token");
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`
-  };
-}
-
-async function requestAutenticada(caminho, options = {}) {
-  const resposta = await fetch(montarUrlApi(caminho), {
-    ...options,
-    headers: {
-      ...obterHeadersAutenticados(),
-      ...(options.headers || {})
-    }
-  });
-
-  const payload = await resposta.json().catch(() => ({}));
-  if (!resposta.ok) {
-    const mensagemErro = payload?.erro || "Falha na operacao.";
-    const detalhe = payload?.detalhe;
-    const textoCompleto =
-      detalhe && String(detalhe).trim() ? `${mensagemErro} (${detalhe})` : mensagemErro;
-    if (resposta.status === 401 && ehErroAutenticacao(mensagemErro)) {
-      limparSessao();
-      window.dispatchEvent(
-        new CustomEvent("gaspass:sessao-expirada", {
-          detail: { mensagem: mensagemErro }
-        })
-      );
-    }
-    throw new Error(textoCompleto);
-  }
-  return payload;
-}
-
-function ehErroAutenticacao(mensagem) {
-  const texto = String(mensagem || "").toLowerCase();
-  return texto.includes("token invalido") || texto.includes("sessao expirada") || texto.includes("token ausente");
-}
+import { apiFetch } from "./apiFetch";
 
 function prefixoGestorGerenteObrigatorio() {
   const p = prefixoApiRedeGestorOuGerente();
@@ -53,13 +11,13 @@ function prefixoGestorGerenteObrigatorio() {
 
 export async function listarCombustiveisRede() {
   const prefixo = prefixoGestorGerenteObrigatorio();
-  const dados = await requestAutenticada(`${prefixo}/combustiveis/listar`, { method: "GET" });
+  const dados = await apiFetch(`${prefixo}/combustiveis/listar`, { method: "GET" });
   return dados?.itens || [];
 }
 
 export async function criarCombustivelRede(payload) {
   const prefixo = prefixoGestorGerenteObrigatorio();
-  const dados = await requestAutenticada(`${prefixo}/combustiveis/criar`, {
+  const dados = await apiFetch(`${prefixo}/combustiveis/criar`, {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -68,7 +26,7 @@ export async function criarCombustivelRede(payload) {
 
 export async function editarCombustivelRede(payload) {
   const prefixo = prefixoGestorGerenteObrigatorio();
-  const dados = await requestAutenticada(`${prefixo}/combustiveis/editar`, {
+  const dados = await apiFetch(`${prefixo}/combustiveis/editar`, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });
@@ -78,7 +36,7 @@ export async function editarCombustivelRede(payload) {
 export async function excluirCombustivelRede(id) {
   const prefixo = prefixoGestorGerenteObrigatorio();
   const q = new URLSearchParams({ id: String(id) });
-  await requestAutenticada(`${prefixo}/combustiveis/excluir?${q.toString()}`, {
+  await apiFetch(`${prefixo}/combustiveis/excluir?${q.toString()}`, {
     method: "DELETE"
   });
 }

@@ -1,31 +1,114 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import PainelLayout from "../../componentes/layout/PainelLayout";
 import { MENUS_GESTOR_REDE } from "../../constantes/menusPorPapel";
+import {
+  PREFIXO_GESTOR,
+  menuPorId,
+  menusComPath
+} from "../../constantes/rotas";
 import { buscarMinhaRedeGestor } from "../../servicos/redesServico";
 import { toastErro } from "../../servicos/toastServico";
 import AbaCarteiraRede from "../super-admin/AbaCarteiraRede";
 import AbaPremiosRede from "../super-admin/AbaPremiosRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
-import GestoresRedeGestaoSecao from "../super-admin/GestoresRedeGestaoSecao";
-import { AbaCampanhas, AbaPostos, ListaUsuariosRedePaginada } from "../super-admin/RedeDetalhesSecao";
-import ClientesPresencaAppSecao from "../../componentes/ClientesPresencaAppSecao";
+import { AbaCampanhas, AbaPostos } from "../super-admin/RedeDetalhesSecao";
 import AppCardsRedeSecao from "./AppCardsRedeSecao";
 import GestorRedeAuditoriaSecao from "./GestorRedeAuditoriaSecao";
 import GestorRedeRelatoriosSecao from "./GestorRedeRelatoriosSecao";
 import CombustiveisRedeSecao from "./CombustiveisRedeSecao";
 import GestorGatewaysPagamentoSecao from "./GestorGatewaysPagamentoSecao";
 import GestorConfiguracoesSecao from "./GestorConfiguracoesSecao";
+import UsuariosPerfisPagina from "./usuarios-perfis/UsuariosPerfisPagina";
+
+function GestorConteudo({ rede, carregandoRede, onRedeRefresh }) {
+  const { secao } = useParams();
+  const menuConfig = menuPorId(MENUS_GESTOR_REDE, secao);
+  const idsValidos = MENUS_GESTOR_REDE.map((m) => m.id);
+
+  if (!idsValidos.includes(secao)) {
+    return <Navigate to={`${PREFIXO_GESTOR}/${MENUS_GESTOR_REDE[0].id}`} replace />;
+  }
+
+  if (carregandoRede) {
+    return (
+      <article className="card-resumo">
+        <p>Carregando dados da rede...</p>
+      </article>
+    );
+  }
+  if (!rede) {
+    return (
+      <article className="card-resumo">
+        <strong>Nao foi possivel carregar a rede</strong>
+        <p>Verifique se o gestor esta vinculado a uma rede ou faca login novamente.</p>
+      </article>
+    );
+  }
+
+  const id = menuConfig.id;
+
+  switch (id) {
+    case "usuarios-perfis":
+      return <UsuariosPerfisPagina rede={rede} />;
+    case "postos":
+      return <AbaPostos redeId={rede.id} />;
+    case "combustiveis":
+      return <CombustiveisRedeSecao />;
+    case "campanhas":
+      return <AbaCampanhas redeId={rede.id} />;
+    case "carteira":
+      return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} />;
+    case "gateways-pagamento":
+      return <GestorGatewaysPagamentoSecao rede={rede} />;
+    case "vouchers":
+      return <AbaVouchersRede rede={rede} onSalvo={onRedeRefresh} />;
+    case "app-cards":
+      return <AppCardsRedeSecao redeId={rede.id} />;
+    case "premios":
+      return <AbaPremiosRede redeId={rede.id} />;
+    case "relatorios":
+      return <GestorRedeRelatoriosSecao />;
+    case "configuracoes":
+      return <GestorConfiguracoesSecao />;
+    case "auditoria":
+      return <GestorRedeAuditoriaSecao />;
+    default:
+      return null;
+  }
+}
+
+function GestorShell({ sessao, onSair, itensMenu, rede, carregandoRede, onRedeRefresh }) {
+  const { secao } = useParams();
+  const menuConfig = menuPorId(MENUS_GESTOR_REDE, secao);
+  const ocultarCabecalho = secao === "usuarios-perfis";
+  const ocultarLinhaRede = secao === "usuarios-perfis" || secao === "gateways-pagamento";
+
+  return (
+    <PainelLayout
+      titulo={menuConfig.titulo}
+      subtitulo={menuConfig.subtitulo}
+      usuario={sessao?.usuario}
+      itensMenu={itensMenu}
+      onSair={onSair}
+      ocultarCabecalho={ocultarCabecalho}
+    >
+      <div className="painel-gestor-rede">
+        {rede && !ocultarLinhaRede ? (
+          <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
+            <strong>{rede.nome_fantasia}</strong> — CNPJ {rede.cnpj || "—"}
+          </p>
+        ) : null}
+        <GestorConteudo rede={rede} carregandoRede={carregandoRede} onRedeRefresh={onRedeRefresh} />
+      </div>
+    </PainelLayout>
+  );
+}
 
 export default function DashboardGestorRedePagina({ sessao, onSair }) {
-  const itensMenu = useMemo(() => MENUS_GESTOR_REDE.map((m) => m.nome), []);
-  const [menuAtivo, setMenuAtivo] = useState(() => MENUS_GESTOR_REDE[0]?.nome ?? "");
+  const itensMenu = useMemo(() => menusComPath(MENUS_GESTOR_REDE, PREFIXO_GESTOR), []);
   const [rede, setRede] = useState(null);
   const [carregandoRede, setCarregandoRede] = useState(true);
-
-  const menuConfig = useMemo(
-    () => MENUS_GESTOR_REDE.find((m) => m.nome === menuAtivo) || MENUS_GESTOR_REDE[0],
-    [menuAtivo]
-  );
 
   const onRedeRefresh = useCallback(async () => {
     try {
@@ -61,90 +144,23 @@ export default function DashboardGestorRedePagina({ sessao, onSair }) {
     };
   }, []);
 
-  function renderConteudo() {
-    if (carregandoRede) {
-      return (
-        <article className="card-resumo">
-          <p>Carregando dados da rede...</p>
-        </article>
-      );
-    }
-    if (!rede) {
-      return (
-        <article className="card-resumo">
-          <strong>Nao foi possivel carregar a rede</strong>
-          <p>Verifique se o gestor esta vinculado a uma rede ou faca login novamente.</p>
-        </article>
-      );
-    }
-
-    const rctx = { nome_fantasia: rede.nome_fantasia, cnpj: rede.cnpj };
-    const id = menuConfig.id;
-
-    switch (id) {
-      case "usuarios-perfis":
-        return (
-          <>
-            <GestoresRedeGestaoSecao
-              idRedeFixo={rede.id}
-              redeContexto={rctx}
-              somenteLeituraGestores
-            />
-            <p className="rede-detalhes__ajuda" style={{ marginTop: 16 }}>
-              Clientes da rede
-            </p>
-            <ClientesPresencaAppSecao redeId={rede.id} />
-            <p className="rede-detalhes__ajuda" style={{ marginTop: 16 }}>
-              Equipe dos postos
-            </p>
-            <ListaUsuariosRedePaginada redeId={rede.id} papeis="gerente_posto,frentista" permiteEditarEquipe />
-          </>
-        );
-      case "postos":
-        return <AbaPostos redeId={rede.id} />;
-      case "combustiveis":
-        return <CombustiveisRedeSecao />;
-      case "campanhas":
-        return <AbaCampanhas redeId={rede.id} />;
-      case "carteira":
-        return <AbaCarteiraRede rede={rede} onSalvo={onRedeRefresh} />;
-      case "gateways-pagamento":
-        return <GestorGatewaysPagamentoSecao />;
-      case "vouchers":
-        return <AbaVouchersRede rede={rede} onSalvo={onRedeRefresh} />;
-      case "app-cards":
-        return <AppCardsRedeSecao redeId={rede.id} />;
-      case "premios":
-        return <AbaPremiosRede redeId={rede.id} />;
-      case "relatorios":
-        return <GestorRedeRelatoriosSecao />;
-      case "configuracoes":
-        return <GestorConfiguracoesSecao />;
-      case "auditoria":
-        return <GestorRedeAuditoriaSecao />;
-      default:
-        return null;
-    }
-  }
-
   return (
-    <PainelLayout
-      titulo={menuConfig.titulo}
-      subtitulo={menuConfig.subtitulo}
-      usuario={sessao?.usuario}
-      itensMenu={itensMenu}
-      itemMenuAtivo={menuAtivo}
-      onSelecionarMenu={setMenuAtivo}
-      onSair={onSair}
-    >
-      <div className="painel-gestor-rede">
-        {rede ? (
-          <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
-            <strong>{rede.nome_fantasia}</strong> — CNPJ {rede.cnpj || "—"}
-          </p>
-        ) : null}
-        {renderConteudo()}
-      </div>
-    </PainelLayout>
+    <Routes>
+      <Route index element={<Navigate to={MENUS_GESTOR_REDE[0].id} replace />} />
+      <Route
+        path=":secao"
+        element={
+          <GestorShell
+            sessao={sessao}
+            onSair={onSair}
+            itensMenu={itensMenu}
+            rede={rede}
+            carregandoRede={carregandoRede}
+            onRedeRefresh={onRedeRefresh}
+          />
+        }
+      />
+      <Route path="*" element={<Navigate to={MENUS_GESTOR_REDE[0].id} replace />} />
+    </Routes>
   );
 }

@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createColumnHelper } from "@tanstack/react-table";
+import { Fuel, Plus } from "lucide-react";
 import {
   criarCombustivelRede,
   editarCombustivelRede,
@@ -7,6 +9,12 @@ import {
 } from "../../servicos/combustiveisRedeServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import CampoComAjuda, { TooltipInfo } from "../../componentes/CampoComAjuda";
+import Badge from "../../componentes/ui/Badge";
+import Button from "../../componentes/ui/Button";
+import DataTable from "../../componentes/ui/DataTable";
+import Modal, { ModalActions } from "../../componentes/ui/Modal";
+
+const columnHelper = createColumnHelper();
 
 const formVazio = {
   nome: "",
@@ -29,7 +37,7 @@ export default function CombustiveisRedeSecao() {
   const [carregando, setCarregando] = useState(true);
   const [form, setForm] = useState(formVazio);
   const [editandoId, setEditandoId] = useState(null);
-  const [mostrarForm, setMostrarForm] = useState(false);
+  const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   async function carregar() {
@@ -49,10 +57,17 @@ export default function CombustiveisRedeSecao() {
     carregar();
   }, []);
 
+  function fecharModal() {
+    if (salvando) return;
+    setModalAberto(false);
+    setEditandoId(null);
+    setForm({ ...formVazio });
+  }
+
   function abrirNovo() {
     setEditandoId(null);
     setForm({ ...formVazio });
-    setMostrarForm(true);
+    setModalAberto(true);
   }
 
   function abrirEditar(c) {
@@ -65,7 +80,7 @@ export default function CombustiveisRedeSecao() {
       ordem: c.ordem != null ? String(c.ordem) : "0",
       ativo: Boolean(c.ativo)
     });
-    setMostrarForm(true);
+    setModalAberto(true);
   }
 
   async function onSubmit(e) {
@@ -102,7 +117,9 @@ export default function CombustiveisRedeSecao() {
         await criarCombustivelRede(payload);
         toastSucesso("Combustivel cadastrado.");
       }
-      setMostrarForm(false);
+      setModalAberto(false);
+      setEditandoId(null);
+      setForm({ ...formVazio });
       await carregar();
     } catch (err) {
       toastErro(err.message || "Falha ao salvar.");
@@ -112,12 +129,8 @@ export default function CombustiveisRedeSecao() {
   }
 
   async function onExcluir(c) {
-    const ok = window.confirm(
-      `Excluir "${c.nome}"? Essa acao nao pode ser desfeita.`
-    );
-    if (!ok) {
-      return;
-    }
+    const ok = window.confirm(`Excluir "${c.nome}"? Essa acao nao pode ser desfeita.`);
+    if (!ok) return;
     try {
       await excluirCombustivelRede(c.id);
       toastSucesso("Combustivel excluido.");
@@ -125,6 +138,67 @@ export default function CombustiveisRedeSecao() {
     } catch (err) {
       toastErro(err.message || "Falha ao excluir.");
     }
+  }
+
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "nome",
+        header: "Nome",
+        cell: (info) => {
+          const c = info.row.original;
+          return <span className="gp-cell-strong">{c.nome}</span>;
+        }
+      }),
+      columnHelper.accessor("codigo", {
+        header: "Codigo",
+        cell: (info) => info.getValue() || "—"
+      }),
+      columnHelper.accessor("preco_por_litro", {
+        header: "Preço / L",
+        cell: (info) => formatarBrl(info.getValue())
+      }),
+      columnHelper.accessor("ordem", {
+        header: "Ordem",
+        cell: (info) => info.getValue() ?? 0
+      }),
+      columnHelper.accessor("ativo", {
+        header: "Ativo",
+        cell: (info) => (
+          <Badge variant={info.getValue() ? "success" : "danger"}>
+            {info.getValue() ? "Sim" : "Nao"}
+          </Badge>
+        )
+      }),
+      columnHelper.display({
+        id: "acoes",
+        header: "Acoes",
+        cell: (info) => {
+          const c = info.row.original;
+          return (
+            <div className="tabela-redes__acoes" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="tabela-btn" onClick={() => abrirEditar(c)}>
+                Editar
+              </button>
+              <button type="button" className="tabela-btn" onClick={() => onExcluir(c)}>
+                Excluir
+              </button>
+            </div>
+          );
+        }
+      })
+    ],
+    []
+  );
+
+  function itensExpandCombustivel(c) {
+    return [
+      { label: "Descricao", value: c.descricao || "—", wide: true },
+      { label: "Codigo", value: c.codigo || "—" },
+      { label: "Preco / litro", value: formatarBrl(c.preco_por_litro) },
+      { label: "Ordem", value: String(c.ordem ?? 0) },
+      { label: "Status", value: c.ativo ? "Ativo" : "Inativo" }
+    ];
   }
 
   return (
@@ -135,150 +209,105 @@ export default function CombustiveisRedeSecao() {
       </p>
       <div className="rede-detalhes__linha-titulo" style={{ marginBottom: 12 }}>
         <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Lista</h2>
-        <button type="button" className="botao-primario" onClick={abrirNovo}>
+        <Button type="button" variant="primary" icon={Plus} onClick={abrirNovo}>
           Novo combustivel
-        </button>
+        </Button>
       </div>
 
-      {carregando ? (
-        <p className="rede-detalhes__ajuda">Carregando...</p>
-      ) : itens.length === 0 ? (
-        <p className="rede-detalhes__ajuda">Nenhum combustivel cadastrado ainda.</p>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table className="tabela-redes tabela-redes--compacta tabela-redes--campanhas-principal">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Codigo</th>
-                <th>Preço / L</th>
-                <th>Ordem</th>
-                <th>Ativo</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {itens.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <strong>{c.nome}</strong>
-                    {c.descricao ? (
-                      <div className="rede-detalhes__ajuda" style={{ marginTop: 4, maxWidth: 280 }}>
-                        {c.descricao}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td>{c.codigo || "—"}</td>
-                  <td>{formatarBrl(c.preco_por_litro)}</td>
-                  <td>{c.ordem ?? 0}</td>
-                  <td>{c.ativo ? "Sim" : "Nao"}</td>
-                  <td>
-                    <button type="button" className="tabela-btn" onClick={() => abrirEditar(c)}>
-                      Editar
-                    </button>{" "}
-                    <button type="button" className="tabela-btn" onClick={() => onExcluir(c)}>
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        data={itens}
+        getRowId={(row) => row.id}
+        loading={carregando}
+        emptyMessage="Nenhum combustivel cadastrado ainda."
+        showExpandColumn
+        getExpandedItems={itensExpandCombustivel}
+      />
 
-      {mostrarForm ? (
-        <div className="card-resumo" style={{ marginTop: 20 }}>
-          <h3 style={{ marginTop: 0, fontSize: "1.05rem" }}>{editandoId ? "Editar combustivel" : "Novo combustivel"}</h3>
-          <form className="form-rede form-rede--equipe" onSubmit={onSubmit}>
-            <div className="form-rede__grid">
-              <CampoComAjuda
-                rotulo="Nome"
-                dica="Nome do combustível exibido no app e no painel."
-                span2
-              >
-                <input
-                  className="campo__input"
-                  placeholder="Nome (ex.: Gasolina comum)"
-                  value={form.nome}
-                  onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-                  required
-                  aria-label="Nome"
-                />
-              </CampoComAjuda>
-              <CampoComAjuda
-                rotulo="Codigo"
-                dica="Código opcional e único dentro da rede."
-              >
-                <input
-                  className="campo__input"
-                  placeholder="Codigo (opcional, unico na rede)"
-                  value={form.codigo}
-                  onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value }))}
-                  aria-label="Codigo"
-                />
-              </CampoComAjuda>
-              <CampoComAjuda
-                rotulo="Ordem"
-                dica="Define a ordem de exibição na lista."
-              >
-                <input
-                  className="campo__input"
-                  placeholder="Ordem (exibicao)"
-                  value={form.ordem}
-                  onChange={(e) => setForm((f) => ({ ...f, ordem: e.target.value }))}
-                  inputMode="numeric"
-                  aria-label="Ordem"
-                />
-              </CampoComAjuda>
-              <CampoComAjuda
-                rotulo="Descricao"
-                dica="Texto opcional para detalhar o combustível."
-                span2
-              >
-                <input
-                  className="campo__input"
-                  placeholder="Descricao (opcional)"
-                  value={form.descricao}
-                  onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
-                  aria-label="Descricao"
-                />
-              </CampoComAjuda>
-              <CampoComAjuda
-                rotulo="Preco por litro"
-                dica="Preço de referência em R$ por litro."
-              >
-                <input
-                  className="campo__input"
-                  placeholder="Preco por litro (R$)"
-                  value={form.preco_por_litro}
-                  onChange={(e) => setForm((f) => ({ ...f, preco_por_litro: e.target.value }))}
-                  inputMode="decimal"
-                  required
-                  aria-label="Preco por litro"
-                />
-              </CampoComAjuda>
-              <label className="form-rede__checkbox-linha form-rede__input-span2">
-                <input
-                  type="checkbox"
-                  checked={form.ativo}
-                  onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
-                />
-                Ativo
-                <TooltipInfo texto="Combustível ativo pode ser usado nas campanhas por litro." />
-              </label>
-            </div>
-            <div className="form-rede__acoes">
-              <button className="botao-secundario" type="button" onClick={() => setMostrarForm(false)} disabled={salvando}>
-                Cancelar
-              </button>
-              <button className="botao-primario" type="submit" disabled={salvando}>
-                {salvando ? "Salvando..." : "Salvar"}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+      <Modal
+        open={modalAberto}
+        onClose={fecharModal}
+        title={editandoId ? "Editar combustivel" : "Novo combustivel"}
+        description="Informe o nome e o preco por litro. Codigo e descricao sao opcionais."
+        size="md"
+        footer={
+          <ModalActions>
+            <Button type="button" variant="outline" onClick={fecharModal} disabled={salvando}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="form-combustivel-modal" variant="primary" disabled={salvando} icon={Fuel}>
+              {salvando ? "Salvando..." : "Salvar"}
+            </Button>
+          </ModalActions>
+        }
+      >
+        <form id="form-combustivel-modal" className="form-rede form-rede--equipe" onSubmit={onSubmit}>
+          <div className="form-rede__grid">
+            <CampoComAjuda rotulo="Nome" dica="Nome do combustível exibido no app e no painel." span2>
+              <input
+                className="campo__input"
+                placeholder="Nome (ex.: Gasolina comum)"
+                value={form.nome}
+                onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                required
+                aria-label="Nome"
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Codigo" dica="Código opcional e único dentro da rede.">
+              <input
+                className="campo__input"
+                placeholder="Codigo (opcional, unico na rede)"
+                value={form.codigo}
+                onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value }))}
+                aria-label="Codigo"
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Ordem" dica="Define a ordem de exibição na lista.">
+              <input
+                className="campo__input"
+                placeholder="Ordem (exibicao)"
+                value={form.ordem}
+                onChange={(e) => setForm((f) => ({ ...f, ordem: e.target.value }))}
+                inputMode="numeric"
+                aria-label="Ordem"
+              />
+            </CampoComAjuda>
+            <CampoComAjuda
+              rotulo="Descricao"
+              dica="Texto opcional para detalhar o combustível."
+              span2
+            >
+              <input
+                className="campo__input"
+                placeholder="Descricao (opcional)"
+                value={form.descricao}
+                onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+                aria-label="Descricao"
+              />
+            </CampoComAjuda>
+            <CampoComAjuda rotulo="Preco por litro" dica="Preço de referência em R$ por litro.">
+              <input
+                className="campo__input"
+                placeholder="Preco por litro (R$)"
+                value={form.preco_por_litro}
+                onChange={(e) => setForm((f) => ({ ...f, preco_por_litro: e.target.value }))}
+                inputMode="decimal"
+                required
+                aria-label="Preco por litro"
+              />
+            </CampoComAjuda>
+            <label className="form-rede__checkbox-linha form-rede__input-span2">
+              <input
+                type="checkbox"
+                checked={form.ativo}
+                onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
+              />
+              Ativo
+              <TooltipInfo texto="Combustível ativo pode ser usado nas campanhas por litro." />
+            </label>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

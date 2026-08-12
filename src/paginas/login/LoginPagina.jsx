@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import BotaoPrimario from "../../componentes/BotaoPrimario";
 import CampoTexto from "../../componentes/CampoTexto";
+import { isDesktop } from "../../configuracao/appTarget";
 import { loginPainel } from "../../servicos/autenticacaoServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 
@@ -57,8 +58,8 @@ function LogoGasPass() {
 }
 
 export default function LoginPagina({ onLoginSucesso }) {
-  const [email, setEmail] = useState("admin@gaspass.local");
-  const [senha, setSenha] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [lembrarMe, setLembrarMe] = useState(false);
 
@@ -130,17 +131,24 @@ export default function LoginPagina({ onLoginSucesso }) {
         <div className="login-card__painel">
           <header className="login-cabecalho">
             <LogoGasPass />
-            <p className="login-cabecalho__sub">Painel Administrativo</p>
+            {isDesktop ? (
+              <>
+                <p className="gp-pdv-login-sub">GasPass PDV</p>
+                <p className="login-cabecalho__sub">Operação no posto</p>
+              </>
+            ) : (
+              <p className="login-cabecalho__sub">Painel Administrativo</p>
+            )}
           </header>
 
           <form className="form-login" onSubmit={handleSubmit}>
             <CampoTexto
               id="email"
-              label="Email"
-              type="email"
+              label="E-mail ou código"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@gaspass.local"
+              placeholder="seu@email.com ou código do frentista"
               autoComplete="username"
               className="campo--login-email"
               iconePrefixo={<IconeEnvelope />}
@@ -167,7 +175,7 @@ export default function LoginPagina({ onLoginSucesso }) {
                     checked={lembrarMe}
                     onChange={(e) => setLembrarMe(e.target.checked)}
                   />
-                  <span>Lembrar-me</span>
+                  <span>{isDesktop ? "Manter conectado" : "Lembrar-me"}</span>
                 </label>
                 <a
                   className="login-esqueci"

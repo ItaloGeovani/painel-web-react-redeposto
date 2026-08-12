@@ -1,22 +1,34 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import PainelLayout from "../../componentes/layout/PainelLayout";
+import { menuPorId, menusComPath } from "../../constantes/rotas";
 
 /**
  * Painel generico: lista de menus vinda de constantes/menusPorPapel.js.
  * Cada secao mostra placeholder ate a implementacao especifica.
  */
-export default function DashboardPorMenusPagina({ menus, sessao, onSair }) {
-  const itensMenu = useMemo(() => menus.map((item) => item.nome), [menus]);
-  const [menuAtivo, setMenuAtivo] = useState(() => menus[0]?.nome ?? "");
-
-  const menuConfig = useMemo(
-    () => menus.find((item) => item.nome === menuAtivo) || menus[0],
-    [menus, menuAtivo]
-  );
+export default function DashboardPorMenusPagina({ menus, sessao, onSair, prefixo = "/painel" }) {
+  const itensMenu = useMemo(() => menusComPath(menus, prefixo), [menus, prefixo]);
 
   if (!menus.length) {
     return null;
   }
+
+  return (
+    <Routes>
+      <Route index element={<Navigate to={menus[0].id} replace />} />
+      <Route
+        path=":secao"
+        element={<PlaceholderShell menus={menus} sessao={sessao} onSair={onSair} itensMenu={itensMenu} />}
+      />
+      <Route path="*" element={<Navigate to={menus[0].id} replace />} />
+    </Routes>
+  );
+}
+
+function PlaceholderShell({ menus, sessao, onSair, itensMenu }) {
+  const { secao } = useParams();
+  const menuConfig = menuPorId(menus, secao);
 
   return (
     <PainelLayout
@@ -24,8 +36,6 @@ export default function DashboardPorMenusPagina({ menus, sessao, onSair }) {
       subtitulo={menuConfig.subtitulo}
       usuario={sessao?.usuario}
       itensMenu={itensMenu}
-      itemMenuAtivo={menuAtivo}
-      onSelecionarMenu={setMenuAtivo}
       onSair={onSair}
     >
       <article className="card-resumo">

@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createColumnHelper } from "@tanstack/react-table";
 import { listarAuditoriaPlataforma } from "../../servicos/adminPlataformaServico";
 import { toastErro } from "../../servicos/toastServico";
+import DataTable from "../../componentes/ui/DataTable";
 
 const LIMITE = 50;
+const columnHelper = createColumnHelper();
 
 function formatarDataHora(iso) {
   if (!iso) {
@@ -48,35 +51,84 @@ export default function SuperAdminAuditoriaSecao() {
     return () => clearTimeout(t);
   }, [filtroDraft]);
 
-  const carregar = useCallback(
-    async (novoOffset, idRedeFiltro) => {
-      setCarregando(true);
-      try {
-        const dados = await listarAuditoriaPlataforma({
-          limite: LIMITE,
-          offset: novoOffset,
-          idRede: idRedeFiltro
-        });
-        setItens(dados.itens);
-        setTotal(dados.total);
-        setOffset(dados.offset);
-      } catch (err) {
-        toastErro(err.message || "Falha ao carregar auditoria.");
-        setItens([]);
-        setTotal(0);
-      } finally {
-        setCarregando(false);
-      }
-    },
-    []
-  );
+  const carregar = useCallback(async (novoOffset, idRedeFiltro) => {
+    setCarregando(true);
+    try {
+      const dados = await listarAuditoriaPlataforma({
+        limite: LIMITE,
+        offset: novoOffset,
+        idRede: idRedeFiltro
+      });
+      setItens(dados.itens);
+      setTotal(dados.total);
+      setOffset(dados.offset);
+    } catch (err) {
+      toastErro(err.message || "Falha ao carregar auditoria.");
+      setItens([]);
+      setTotal(0);
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
 
   useEffect(() => {
     carregar(0, filtroRede.trim());
   }, [carregar, filtroRede]);
 
-  const podeAnterior = offset > 0;
-  const podeProximo = offset + itens.length < total;
+  const page = Math.floor(offset / LIMITE) + 1;
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("criado_em", {
+        header: "Data",
+        cell: (info) => (
+          <span className="tabela-num" style={{ whiteSpace: "nowrap" }}>
+            {formatarDataHora(info.getValue())}
+          </span>
+        )
+      }),
+      columnHelper.accessor("id_rede", {
+        header: "Rede",
+        cell: (info) => <span className="tabela-redes__sub">{info.getValue() || "—"}</span>
+      }),
+      columnHelper.accessor("tipo_evento", {
+        header: "Evento",
+        cell: (info) => <strong className="gp-cell-strong">{info.getValue() || "—"}</strong>
+      }),
+      columnHelper.display({
+        id: "entidade",
+        header: "Entidade",
+        cell: (info) => {
+          const row = info.row.original;
+          return (
+            <div className="tabela-celula--stack">
+              <span className="gp-cell-strong">{row.tipo_entidade || "—"}</span>
+              {row.id_entidade ? (
+                <span className="tabela-redes__sub">ID {row.id_entidade}</span>
+              ) : null}
+            </div>
+          );
+        }
+      }),
+      columnHelper.accessor("id_usuario_ator", {
+        header: "Ator",
+        cell: (info) => <span className="tabela-redes__sub">{info.getValue() || "—"}</span>
+      }),
+      columnHelper.display({
+        id: "detalhes",
+        header: "Detalhes",
+        cell: (info) => {
+          const resumo = resumirJson(info.row.original.dados_novos);
+          return (
+            <span className="tabela-redes__sub" title={resumo}>
+              Novo: {resumo}
+            </span>
+          );
+        }
+      })
+    ],
+    []
+  );
 
   return (
     <div className="gestor-auditoria">
@@ -94,93 +146,19 @@ export default function SuperAdminAuditoriaSecao() {
         />
       </div>
 
-      {carregando ? (
-        <article className="card-resumo">
-          <p>Carregando eventos...</p>
-        </article>
-      ) : (
-        <>
-          <div style={{ marginBottom: 12, fontSize: 13, color: "#64748b" }}>
-            Total de registros: <strong className="tabela-num">{total}</strong>
-            {total > 0 ? (
-              <>
-                {" "}
-                — exibindo {offset + 1}–{offset + itens.length}
-              </>
-            ) : null}
-          </div>
-
-          {itens.length === 0 ? (
-            <article className="card-resumo">
-              <strong>Nenhum evento de auditoria</strong>
-              <p>Quando o sistema registrar acoes, elas aparecerao aqui.</p>
-            </article>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table className="tabela-redes" style={{ minWidth: 880 }}>
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Rede</th>
-                    <th>Evento</th>
-                    <th>Entidade</th>
-                    <th>Ator</th>
-                    <th>Detalhes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itens.map((row) => (
-                    <tr key={row.id}>
-                      <td className="tabela-num" style={{ whiteSpace: "nowrap" }}>
-                        {formatarDataHora(row.criado_em)}
-                      </td>
-                      <td className="tabela-redes__sub">{row.id_rede || "—"}</td>
-                      <td>
-                        <strong className="tabela-celula__principal">{row.tipo_evento || "—"}</strong>
-                      </td>
-                      <td>
-                        <span className="tabela-celula__principal">{row.tipo_entidade || "—"}</span>
-                        {row.id_entidade ? (
-                          <span className="tabela-redes__sub" style={{ display: "block" }}>
-                            ID {row.id_entidade}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="tabela-redes__sub">{row.id_usuario_ator || "—"}</td>
-                      <td>
-                        <span className="tabela-redes__sub" title={resumirJson(row.dados_novos)}>
-                          Novo: {resumirJson(row.dados_novos)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {total > LIMITE ? (
-            <div className="tabela-redes__acoes" style={{ marginTop: 16 }}>
-              <button
-                type="button"
-                className="tabela-btn tabela-btn--outline"
-                disabled={!podeAnterior}
-                onClick={() => carregar(Math.max(0, offset - LIMITE), filtroRede.trim())}
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                className="tabela-btn tabela-btn--outline"
-                disabled={!podeProximo}
-                onClick={() => carregar(offset + LIMITE, filtroRede.trim())}
-              >
-                Proxima
-              </button>
-            </div>
-          ) : null}
-        </>
-      )}
+      <DataTable
+        columns={columns}
+        data={itens}
+        getRowId={(row) => row.id}
+        loading={carregando}
+        emptyMessage="Nenhum evento de auditoria. Quando o sistema registrar acoes, elas aparecerao aqui."
+        pagination={{
+          page,
+          pageSize: LIMITE,
+          total,
+          onPageChange: (p) => carregar((p - 1) * LIMITE, filtroRede.trim())
+        }}
+      />
     </div>
   );
 }

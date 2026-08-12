@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
-import { URL_BASE_API } from "../../configuracao/apiConfig";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Image as ImageIcon, Images, Sparkles } from "lucide-react";
 import { listarAppCardsRede, salvarAppCardsRede } from "../../servicos/appCardsServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import CampoImagemUrl from "../../componentes/CampoImagemUrl";
+import Button from "../../componentes/ui/Button";
+import Badge from "../../componentes/ui/Badge";
 
 function cardVazio(slot) {
   return { slot, titulo: "", imagem_url: "", link_url: "", ativo: true };
@@ -24,6 +26,103 @@ function mesclarLista(lista) {
   });
 }
 
+function statusImagem(c) {
+  if (!c.ativo) return { label: "Desligado", variant: "neutral" };
+  if (String(c.imagem_url || "").trim()) return { label: "Com imagem", variant: "success" };
+  if (c.slot >= 1) return { label: "Usa padrão no app", variant: "warning" };
+  return { label: "Sem imagem", variant: "neutral" };
+}
+
+function EditorCard({
+  card,
+  titulo,
+  subtitulo,
+  badgeExtra,
+  onChange,
+  placeholderTitulo = "Título (opcional)"
+}) {
+  const st = statusImagem(card);
+  const temImg = Boolean(String(card.imagem_url || "").trim());
+
+  return (
+    <article className={`gp-app-cards__card ${card.ativo ? "" : "gp-app-cards__card--off"}`}>
+      <header className="gp-app-cards__card-cab">
+        <div>
+          <h4 className="gp-app-cards__card-titulo">{titulo}</h4>
+          {subtitulo ? <p className="gp-app-cards__card-sub">{subtitulo}</p> : null}
+        </div>
+        <div className="gp-app-cards__badges">
+          {badgeExtra}
+          <Badge variant={st.variant}>{st.label}</Badge>
+        </div>
+      </header>
+
+      <label className="gp-app-cards__toggle">
+        <input
+          type="checkbox"
+          checked={card.ativo}
+          onChange={(e) => onChange("ativo", e.target.checked)}
+        />
+        <span>Visível no app</span>
+      </label>
+
+      <label className="gp-app-cards__campo">
+        Título
+        <input
+          className="campo__input"
+          placeholder={placeholderTitulo}
+          value={card.titulo}
+          onChange={(e) => onChange("titulo", e.target.value)}
+        />
+      </label>
+
+      <div className="gp-app-cards__campo">
+        <span className="gp-app-cards__campo-label">Imagem</span>
+        <CampoImagemUrl
+          value={card.imagem_url}
+          onChange={(url) => onChange("imagem_url", url)}
+          mostrarPrevia={false}
+          placeholder="Cole a URL ou envie um arquivo"
+        />
+        {card.slot >= 1 && !temImg ? (
+          <p className="gp-app-cards__dica">
+            Sem URL: o app mostra a imagem padrão local (padrao{card.slot}.png) até você enviar uma.
+          </p>
+        ) : null}
+      </div>
+
+      <label className="gp-app-cards__campo">
+        Link ao tocar (opcional)
+        <input
+          className="campo__input"
+          type="url"
+          placeholder="https://..."
+          value={card.link_url}
+          onChange={(e) => onChange("link_url", e.target.value)}
+        />
+      </label>
+
+      <div className="gp-app-cards__previa" aria-hidden={!temImg}>
+        {temImg ? (
+          <img
+            src={card.imagem_url}
+            alt=""
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.style.visibility = "hidden";
+            }}
+          />
+        ) : (
+          <div className="gp-app-cards__previa-vazia">
+            <ImageIcon size={28} />
+            <span>{card.slot >= 1 ? `Padrão ${card.slot} no app` : "Sem prévia"}</span>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export default function AppCardsRedeSecao({ redeId }) {
   const [cards, setCards] = useState(() => [0, 1, 2, 3].map(cardVazio));
   const [carregando, setCarregando] = useState(true);
@@ -33,8 +132,7 @@ export default function AppCardsRedeSecao({ redeId }) {
     setCarregando(true);
     try {
       const bloco = await listarAppCardsRede();
-      const lista = bloco?.lista ?? [];
-      setCards(mesclarLista(lista));
+      setCards(mesclarLista(bloco?.lista ?? []));
     } catch (err) {
       toastErro(err.message || "Falha ao carregar cards.");
       setCards([0, 1, 2, 3].map(cardVazio));
@@ -47,18 +145,35 @@ export default function AppCardsRedeSecao({ redeId }) {
     carregar();
   }, [carregar, redeId]);
 
+  const destaque = useMemo(() => cards.find((c) => c.slot === 0) || cardVazio(0), [cards]);
+  const promos = useMemo(
+    () => [1, 2, 3].map((s) => cards.find((c) => c.slot === s) || cardVazio(s)),
+    [cards]
+  );
+
+  const resumoCarrossel = useMemo(() => {
+    const ativos = promos.filter((p) => p.ativo).length;
+    const comImg = promos.filter((p) => p.ativo && String(p.imagem_url || "").trim()).length;
+    return { ativos, comImg };
+  }, [promos]);
+
+  function atualizar(slot, campo, valor) {
+    setCards((prev) => prev.map((c) => (c.slot === slot ? { ...c, [campo]: valor } : c)));
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     setSalvando(true);
     try {
-      const payload = cards.map((c) => ({
-        slot: c.slot,
-        titulo: c.titulo,
-        imagem_url: c.imagem_url,
-        link_url: c.link_url,
-        ativo: c.ativo
-      }));
-      await salvarAppCardsRede(payload);
+      await salvarAppCardsRede(
+        cards.map((c) => ({
+          slot: c.slot,
+          titulo: c.titulo,
+          imagem_url: c.imagem_url,
+          link_url: c.link_url,
+          ativo: c.ativo
+        }))
+      );
       toastSucesso("Cards do app salvos.");
       await carregar();
     } catch (err) {
@@ -68,107 +183,86 @@ export default function AppCardsRedeSecao({ redeId }) {
     }
   }
 
-  function atualizar(slot, campo, valor) {
-    setCards((prev) =>
-      prev.map((c) => (c.slot === slot ? { ...c, [campo]: valor } : c))
-    );
-  }
-
-  const urlPublica = `${URL_BASE_API}/v1/public/rede-cards?id_rede=${encodeURIComponent(redeId || "")}`;
-
   if (carregando) {
     return (
-      <article className="card-resumo">
-        <p>Carregando cards do app...</p>
-      </article>
+      <div className="gp-app-cards">
+        <p className="gp-app-cards__ajuda">Carregando cards do app…</p>
+      </div>
     );
   }
 
-  const rotulos = [
-    { slot: 0, nome: "Card destaque (rede)", ajuda: "Banner principal sobre a rede de postos." },
-    { slot: 1, nome: "Promocao 1", ajuda: "Primeiro card de promocao." },
-    { slot: 2, nome: "Promocao 2", ajuda: "Segundo card de promocao." },
-    { slot: 3, nome: "Promocao 3", ajuda: "Terceiro card de promocao." }
-  ];
-
   return (
-    <div className="gestor-relatorios">
-      <p className="rede-detalhes__ajuda" style={{ marginBottom: 16 }}>
-        Defina URLs de imagens (https) para o app do cliente. O app consumira o endpoint publico abaixo (sem login).
-      </p>
-      <p className="rede-detalhes__ajuda rede-detalhes__ajuda--form" style={{ marginBottom: 20 }}>
-        <strong>Endpoint publico:</strong>{" "}
-        <code style={{ wordBreak: "break-all" }}>{urlPublica}</code>
-      </p>
-
-      <form className="form-rede form-rede--equipe" onSubmit={onSubmit}>
-        {rotulos.map(({ slot, nome, ajuda }) => {
-          const c = cards.find((x) => x.slot === slot) || cardVazio(slot);
-          return (
-            <fieldset
-              key={slot}
-              className="form-rede__grid form-rede__input-span2"
-              style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 16, marginBottom: 16 }}
-            >
-              <legend style={{ padding: "0 8px", fontWeight: 600 }}>
-                {nome} — slot {slot}
-              </legend>
-              <p className="rede-detalhes__ajuda" style={{ gridColumn: "1 / -1", marginBottom: 8 }}>
-                {ajuda}
-              </p>
-              <input
-                className="campo__input"
-                placeholder="Titulo (opcional)"
-                value={c.titulo}
-                onChange={(e) => atualizar(slot, "titulo", e.target.value)}
-                aria-label={`Titulo ${nome}`}
-              />
-              <label className="form-rede__radio-linha">
-                <input
-                  type="checkbox"
-                  checked={c.ativo}
-                  onChange={(e) => atualizar(slot, "ativo", e.target.checked)}
-                />
-                Ativo no app
-              </label>
-              <CampoImagemUrl
-                classNameInput="campo__input"
-                span2
-                value={c.imagem_url}
-                onChange={(url) => atualizar(slot, "imagem_url", url)}
-                mostrarPrevia={false}
-              />
-              <input
-                className="campo__input form-rede__input-span2"
-                placeholder="Link ao tocar (opcional, https://...)"
-                type="url"
-                value={c.link_url}
-                onChange={(e) => atualizar(slot, "link_url", e.target.value)}
-                aria-label={`Link ${nome}`}
-              />
-              {c.imagem_url ? (
-                <div className="form-rede__input-span2" style={{ marginTop: 8 }}>
-                  <span className="form-rede__titulo-aux">Previa</span>
-                  <img
-                    src={c.imagem_url}
-                    alt=""
-                    style={{ maxWidth: 320, maxHeight: 160, objectFit: "contain", borderRadius: 6 }}
-                    loading="lazy"
-                    onError={(e) => {
-                      e.target.style.display = "none";
-                    }}
-                  />
-                </div>
-              ) : null}
-            </fieldset>
-          );
-        })}
-        <div className="form-rede__acoes form-rede__input-span2">
-          <button className="botao-primario" type="submit" disabled={salvando}>
-            {salvando ? "Salvando..." : "Salvar cards"}
-          </button>
+    <form className="gp-app-cards" onSubmit={onSubmit}>
+      <header className="gp-app-cards__intro">
+        <div className="gp-app-cards__intro-icon" aria-hidden>
+          <Images size={22} />
         </div>
-      </form>
-    </div>
+        <div>
+          <h3 className="gp-app-cards__intro-titulo">Imagens da home do app</h3>
+          <p className="gp-app-cards__ajuda">
+            São <strong>duas áreas diferentes</strong>: o destaque da rede (marca) e o{" "}
+            <strong>carrossel com até 3 promoções</strong>. O carrossel só mostra os cards ativos;
+            sem URL de imagem, a promoção ainda aparece com a imagem padrão do app.
+          </p>
+        </div>
+      </header>
+
+      <section className="gp-app-cards__secao" aria-labelledby="app-cards-destaque">
+        <div className="gp-app-cards__secao-cab">
+          <Sparkles size={18} aria-hidden />
+          <div>
+            <h3 id="app-cards-destaque">1. Destaque da rede</h3>
+            <p>Usado como marca / banner da rede no app (não entra no carrossel).</p>
+          </div>
+        </div>
+        <EditorCard
+          card={destaque}
+          titulo="Destaque"
+          subtitulo="Uma imagem principal da rede"
+          onChange={(campo, valor) => atualizar(0, campo, valor)}
+          placeholderTitulo="Ex.: Rede Lucena+"
+        />
+      </section>
+
+      <section className="gp-app-cards__secao" aria-labelledby="app-cards-carrossel">
+        <div className="gp-app-cards__secao-cab">
+          <Images size={18} aria-hidden />
+          <div>
+            <h3 id="app-cards-carrossel">2. Carrossel de promoções</h3>
+            <p>
+              Três slides na home do cliente. Agora:{" "}
+              <strong>
+                {resumoCarrossel.ativos} ativo{resumoCarrossel.ativos === 1 ? "" : "s"}
+              </strong>
+              , {resumoCarrossel.comImg} com imagem própria
+              {resumoCarrossel.ativos - resumoCarrossel.comImg > 0
+                ? ` (${resumoCarrossel.ativos - resumoCarrossel.comImg} usam padrão)`
+                : ""}
+              .
+            </p>
+          </div>
+        </div>
+
+        <div className="gp-app-cards__grid-promos">
+          {promos.map((p) => (
+            <EditorCard
+              key={p.slot}
+              card={p}
+              titulo={`Promoção ${p.slot}`}
+              subtitulo={`Slide ${p.slot} do carrossel`}
+              badgeExtra={<Badge variant="neutral">Slide {p.slot}</Badge>}
+              onChange={(campo, valor) => atualizar(p.slot, campo, valor)}
+              placeholderTitulo={`Título da promoção ${p.slot}`}
+            />
+          ))}
+        </div>
+      </section>
+
+      <div className="gp-app-cards__acoes">
+        <Button type="submit" disabled={salvando}>
+          {salvando ? "Salvando…" : "Salvar cards"}
+        </Button>
+      </div>
+    </form>
   );
 }

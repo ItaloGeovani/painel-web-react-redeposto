@@ -1,4 +1,3 @@
-import { montarUrlApi } from "../configuracao/apiConfig";
 import {
   frentistaLogado,
   gestorRedeLogado,
@@ -6,58 +5,17 @@ import {
   prefixoApiRedeGestorOuGerente,
   superAdminLogado
 } from "../configuracao/painelApi";
-import { limparSessao } from "./sessaoServico";
-
-function obterHeadersAutenticados() {
-  const token = localStorage.getItem("gaspass_token");
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`
-  };
-}
-
-async function requestAutenticada(caminho, options = {}) {
-  const resposta = await fetch(montarUrlApi(caminho), {
-    ...options,
-    headers: {
-      ...obterHeadersAutenticados(),
-      ...(options.headers || {})
-    }
-  });
-
-  const payload = await resposta.json().catch(() => ({}));
-  if (!resposta.ok) {
-    const mensagemErro = payload?.erro || "Falha na operacao.";
-    const detalhe = payload?.detalhe;
-    const textoCompleto =
-      detalhe && String(detalhe).trim() ? `${mensagemErro} (${detalhe})` : mensagemErro;
-    if (resposta.status === 401 && ehErroAutenticacao(mensagemErro)) {
-      limparSessao();
-      window.dispatchEvent(
-        new CustomEvent("gaspass:sessao-expirada", {
-          detail: { mensagem: mensagemErro }
-        })
-      );
-    }
-    throw new Error(textoCompleto);
-  }
-  return payload;
-}
-
-function ehErroAutenticacao(mensagem) {
-  const texto = String(mensagem || "").toLowerCase();
-  return texto.includes("token invalido") || texto.includes("sessao expirada") || texto.includes("token ausente");
-}
+import { apiFetch } from "./apiFetch";
 
 export async function listarRedes() {
-  const dados = await requestAutenticada("/v1/admin/redes/dev/listar", {
+  const dados = await apiFetch("/v1/admin/redes/dev/listar", {
     method: "GET"
   });
   return dados?.itens || [];
 }
 
 export async function criarRede(payload) {
-  const dados = await requestAutenticada("/v1/admin/redes/dev/criar", {
+  const dados = await apiFetch("/v1/admin/redes/dev/criar", {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -65,7 +23,7 @@ export async function criarRede(payload) {
 }
 
 export async function editarRede(payload) {
-  const dados = await requestAutenticada("/v1/admin/redes/dev/editar", {
+  const dados = await apiFetch("/v1/admin/redes/dev/editar", {
     method: "PUT",
     body: JSON.stringify(payload)
   });
@@ -73,7 +31,7 @@ export async function editarRede(payload) {
 }
 
 export async function ativarRede(id) {
-  const dados = await requestAutenticada("/v1/admin/redes/dev/ativar", {
+  const dados = await apiFetch("/v1/admin/redes/dev/ativar", {
     method: "PATCH",
     body: JSON.stringify({ id })
   });
@@ -81,7 +39,7 @@ export async function ativarRede(id) {
 }
 
 export async function desativarRede(id) {
-  const dados = await requestAutenticada("/v1/admin/redes/dev/desativar", {
+  const dados = await apiFetch("/v1/admin/redes/dev/desativar", {
     method: "PATCH",
     body: JSON.stringify({ id })
   });
@@ -93,10 +51,17 @@ export async function buscarMinhaRedeGestor() {
   if (!prefixo) {
     throw new Error("Operacao disponivel apenas para gestor da rede, gerente de posto ou frentista.");
   }
-  const dados = await requestAutenticada(`${prefixo}/rede`, {
+  const dados = await apiFetch(`${prefixo}/rede`, {
     method: "GET"
   });
-  return dados?.rede;
+  const rede = dados?.rede;
+  if (rede && typeof rede === "object") {
+    const logo = String(dados?.rede_logo_url || "").trim();
+    if (logo) {
+      rede.logo_url = logo;
+    }
+  }
+  return rede;
 }
 
 export async function atualizarMoedaVirtualRede(payload) {
@@ -112,7 +77,7 @@ export async function atualizarMoedaVirtualRede(payload) {
         moeda_virtual_cotacao: payload.moeda_virtual_cotacao
       }
     : payload;
-  const dados = await requestAutenticada(path, {
+  const dados = await apiFetch(path, {
     method: "PATCH",
     body: JSON.stringify(body)
   });
@@ -142,7 +107,7 @@ export async function atualizarConfigVoucherRede(payload) {
         voucher_dias_validade_resgate: payload.voucher_dias_validade_resgate,
         voucher_minutos_expira_pagamento_pix: payload.voucher_minutos_expira_pagamento_pix
       };
-  const dados = await requestAutenticada(path, {
+  const dados = await apiFetch(path, {
     method: "PATCH",
     body: JSON.stringify(corpo)
   });
@@ -171,7 +136,7 @@ export async function listarVouchersRede({ redeId, limite = 40, offset = 0, stat
     }
     caminho = `${prefixo}/vouchers/listar?${params}`;
   }
-  const dados = await requestAutenticada(caminho, { method: "GET" });
+  const dados = await apiFetch(caminho, { method: "GET" });
   return {
     itens: Array.isArray(dados?.itens) ? dados.itens : [],
     total: Number(dados?.total ?? 0)
@@ -205,7 +170,7 @@ export async function atualizarAppModulosRede(payload) {
         app_modulo_gire_ganhe: !!payload.app_modulo_gire_ganhe,
         app_modulo_redes_sociais: !!payload.app_modulo_redes_sociais
       };
-  const dados = await requestAutenticada(path, {
+  const dados = await apiFetch(path, {
     method: "PATCH",
     body: JSON.stringify(corpo)
   });
@@ -222,5 +187,5 @@ export async function buscarDiagnosticoPushRedeSuperAdmin(idRede) {
     throw new Error("Apenas administrador geral pode usar este diagnostico.");
   }
   const qs = new URLSearchParams({ id_rede: rid });
-  return requestAutenticada(`/v1/admin/redes/dev/push/diagnostico?${qs}`, { method: "GET" });
+  return apiFetch(`/v1/admin/redes/dev/push/diagnostico?${qs}`, { method: "GET" });
 }

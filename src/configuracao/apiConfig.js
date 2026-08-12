@@ -1,15 +1,16 @@
 const URL_API_DEV = "http://localhost:8080";
+const isDesktop = import.meta.env.VITE_APP_TARGET === "desktop";
 
 /**
- * Em producao (build servido pelo mesmo host do backend), URL vazia = mesma origem.
- * Em dev, aponta para o servidor Go local salvo se VITE_API_URL estiver definido.
+ * Em producao web (build servido pelo mesmo host do backend), URL vazia = mesma origem.
+ * Em dev ou desktop (Tauri), exige URL absoluta — same-origin nao existe no WebView.
  */
 export const URL_BASE_API = (() => {
   const env = import.meta.env.VITE_API_URL;
   if (env !== undefined && String(env).trim() !== "") {
     return String(env).replace(/\/$/, "");
   }
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV || isDesktop) {
     return URL_API_DEV.replace(/\/$/, "");
   }
   return "";

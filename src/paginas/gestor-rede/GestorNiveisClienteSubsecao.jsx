@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createColumnHelper } from "@tanstack/react-table";
 import { buscarNiveisClienteGestor, salvarNiveisClienteGestor } from "../../servicos/niveisClienteServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import DataTable from "../../componentes/ui/DataTable";
+
+const columnHelper = createColumnHelper();
 
 function parseNum(s) {
   const n = parseFloat(String(s).replace(",", "."));
@@ -31,7 +35,8 @@ export default function GestorNiveisClienteSubsecao({ onVoltar }) {
       setMultDescontoAtivo(!!d?.mult_desconto_ativo);
       const n = Array.isArray(d?.niveis) ? d.niveis : [];
       setNiveis(
-        n.map((x) => ({
+        n.map((x, i) => ({
+          _key: `nivel-${i}-${String(x.codigo || "")}`,
           codigo: String(x.codigo || ""),
           nome: String(x.nome || ""),
           mult_moeda: x.mult_moeda,
@@ -96,6 +101,95 @@ export default function GestorNiveisClienteSubsecao({ onVoltar }) {
       setSalvando(false);
     }
   }
+
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "ordem",
+        header: "Ordem",
+        cell: (info) => {
+          const i = info.row.index;
+          const n = info.row.original;
+          return (
+            <input
+              className="form-rede__input"
+              type="number"
+              min={1}
+              max={99}
+              value={n.ordem}
+              onChange={(ev) => setLinha(i, { ordem: ev.target.value === "" ? "" : Number(ev.target.value) })}
+            />
+          );
+        }
+      }),
+      columnHelper.display({
+        id: "codigo",
+        header: "Codigo",
+        cell: (info) => {
+          const i = info.row.index;
+          const n = info.row.original;
+          return (
+            <input
+              className="form-rede__input"
+              value={n.codigo}
+              onChange={(ev) => setLinha(i, { codigo: ev.target.value })}
+              placeholder="bronze"
+              autoComplete="off"
+            />
+          );
+        }
+      }),
+      columnHelper.display({
+        id: "nome",
+        header: "Nome",
+        cell: (info) => {
+          const i = info.row.index;
+          const n = info.row.original;
+          return (
+            <input
+              className="form-rede__input"
+              value={n.nome}
+              onChange={(ev) => setLinha(i, { nome: ev.target.value })}
+              placeholder="Bronze"
+            />
+          );
+        }
+      }),
+      columnHelper.display({
+        id: "mult_moeda",
+        header: "x Moeda",
+        cell: (info) => {
+          const i = info.row.index;
+          const n = info.row.original;
+          return (
+            <input
+              className="form-rede__input"
+              inputMode="decimal"
+              value={n.mult_moeda}
+              onChange={(ev) => setLinha(i, { mult_moeda: ev.target.value })}
+            />
+          );
+        }
+      }),
+      columnHelper.display({
+        id: "mult_desconto",
+        header: "x Desconto",
+        cell: (info) => {
+          const i = info.row.index;
+          const n = info.row.original;
+          return (
+            <input
+              className="form-rede__input"
+              inputMode="decimal"
+              value={n.mult_desconto}
+              onChange={(ev) => setLinha(i, { mult_desconto: ev.target.value })}
+            />
+          );
+        }
+      })
+    ],
+    []
+  );
 
   if (carregando) {
     return (
@@ -173,70 +267,12 @@ export default function GestorNiveisClienteSubsecao({ onVoltar }) {
             <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
               Defina ordem, codigo tecnico, nome exibido e fatores por linha.
             </p>
-            <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-              <table className="gestor-tabela-niveis">
-                <thead>
-                  <tr>
-                    <th scope="col">Ordem</th>
-                    <th scope="col">Codigo</th>
-                    <th scope="col">Nome</th>
-                    <th scope="col">x Moeda</th>
-                    <th scope="col">x Desconto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {niveis.map((n, i) => (
-                    <tr key={`${n.codigo}-${i}`}>
-                      <td>
-                        <input
-                          className="form-rede__input"
-                          type="number"
-                          min={1}
-                          max={99}
-                          value={n.ordem}
-                          onChange={(ev) =>
-                            setLinha(i, { ordem: ev.target.value === "" ? "" : Number(ev.target.value) })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="form-rede__input"
-                          value={n.codigo}
-                          onChange={(ev) => setLinha(i, { codigo: ev.target.value })}
-                          placeholder="bronze"
-                          autoComplete="off"
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="form-rede__input"
-                          value={n.nome}
-                          onChange={(ev) => setLinha(i, { nome: ev.target.value })}
-                          placeholder="Bronze"
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="form-rede__input"
-                          inputMode="decimal"
-                          value={n.mult_moeda}
-                          onChange={(ev) => setLinha(i, { mult_moeda: ev.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="form-rede__input"
-                          inputMode="decimal"
-                          value={n.mult_desconto}
-                          onChange={(ev) => setLinha(i, { mult_desconto: ev.target.value })}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={columns}
+              data={niveis}
+              getRowId={(row) => row._key}
+              emptyMessage="Nenhum nivel cadastrado."
+            />
           </div>
         ) : null}
 

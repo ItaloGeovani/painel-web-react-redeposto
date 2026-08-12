@@ -5,9 +5,10 @@
   "windows": [
     "main"
   ],
-  "permissions": [
+    "permissions": [
     "core:default",
     "core:window:allow-set-title",
+    "core:webview:allow-internal-toggle-devtools",
     "updater:default",
     "process:default"
   ]

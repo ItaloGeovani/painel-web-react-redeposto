@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "GasPass PDV",
-  "version": "0.1.1",
+  "version": "0.1.6",
   "identifier": "br.com.gaspass.pdv",
   "build": {
     "frontendDist": "../dist",
@@ -20,7 +20,8 @@
         "minHeight": 520,
         "center": true,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "devtools": true
       }
     ],
     "security": {

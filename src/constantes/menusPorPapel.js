@@ -88,6 +88,13 @@ export const MENUS_GESTOR_REDE = [
     titulo: "Configuracoes",
     subtitulo: "Ferramentas e testes, incluindo notificacoes push no app.",
     grupo: "Gestao"
+  },
+  {
+    id: "downloads",
+    nome: "Baixar PDV",
+    titulo: "Baixar GasPass PDV",
+    subtitulo: "Instalador Windows do aplicativo de balcão (desktop).",
+    grupo: "Gestao"
   }
 ];
 
@@ -169,6 +176,13 @@ export const MENUS_GERENTE_POSTO = [
     titulo: "Configuracoes",
     subtitulo: "Ferramentas e testes, incluindo notificacoes push no app.",
     grupo: "Gestao"
+  },
+  {
+    id: "downloads",
+    nome: "Baixar PDV",
+    titulo: "Baixar GasPass PDV",
+    subtitulo: "Instalador Windows do aplicativo de balcão (desktop).",
+    grupo: "Gestao"
   }
 ];
 
@@ -207,6 +221,15 @@ export const MENUS_FRENTISTA = [
     titulo: "Relatorios",
     subtitulo: "Baixas do frentista autenticado por codigo e senha.",
     grupo: "Operacao"
+  },
+  {
+    id: "downloads",
+    nome: "Baixar PDV",
+    titulo: "Baixar GasPass PDV",
+    subtitulo: "Instalador Windows do aplicativo de balcão (desktop).",
+    grupo: "Operacao",
+    /** Só no painel web — no Tauri o app já está instalado. */
+    somenteWeb: true
   }
 ];
 

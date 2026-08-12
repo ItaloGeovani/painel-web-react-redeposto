@@ -1,4 +1,5 @@
 import { montarUrlApi } from "../configuracao/apiConfig";
+import { mensagemErroAmigavel, mensagemErroHttp } from "../utilitarios/mensagemErroAmigavel";
 
 async function lerPayload(resposta) {
   return resposta.json().catch(() => ({}));
@@ -17,20 +18,24 @@ export async function loginPainel(identificador, senha) {
     body.codigo = id;
   }
 
-  const resposta = await fetch(montarUrlApi("/v1/autenticacao/login-painel"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Painel-Web": "1"
-    },
-    body: JSON.stringify(body)
-  });
+  let resposta;
+  try {
+    resposta = await fetch(montarUrlApi("/v1/autenticacao/login-painel"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Painel-Web": "1"
+      },
+      body: JSON.stringify(body)
+    });
+  } catch (err) {
+    throw new Error(mensagemErroAmigavel(err, { contexto: "login" }));
+  }
 
   const payload = await lerPayload(resposta);
 
   if (!resposta.ok) {
-    const mensagem = payload?.erro || "Falha ao autenticar.";
-    throw new Error(mensagem);
+    throw new Error(mensagemErroHttp(resposta, payload, "Falha ao autenticar."));
   }
 
   return payload;

@@ -1,5 +1,6 @@
 import { montarUrlApi } from "../configuracao/apiConfig";
 import { limparSessao } from "./sessaoServico";
+import { mensagemErroAmigavel, mensagemErroHttp } from "../utilitarios/mensagemErroAmigavel";
 
 export function obterToken() {
   return localStorage.getItem("gaspass_token");
@@ -33,13 +34,10 @@ function dispararSessaoExpirada(mensagem) {
 }
 
 function tratarRespostaNaoOk(resposta, payload, mensagemPadrao) {
-  const mensagemErro = payload?.erro || mensagemPadrao || "Falha na operacao.";
-  const detalhe = payload?.detalhe;
-  const textoCompleto =
-    detalhe && String(detalhe).trim() ? `${mensagemErro} (${detalhe})` : mensagemErro;
+  const textoCompleto = mensagemErroHttp(resposta, payload, mensagemPadrao || "Falha na operacao.");
 
-  if (resposta.status === 401 && ehErroAutenticacao(mensagemErro)) {
-    dispararSessaoExpirada(mensagemErro);
+  if (resposta.status === 401 && ehErroAutenticacao(payload?.erro || textoCompleto)) {
+    dispararSessaoExpirada(payload?.erro || textoCompleto);
   }
 
   throw new Error(textoCompleto);
@@ -51,13 +49,18 @@ function tratarRespostaNaoOk(resposta, payload, mensagemPadrao) {
  */
 export async function apiFetch(caminho, options = {}) {
   const { headers: headersExtras, ...rest } = options;
-  const resposta = await fetch(montarUrlApi(caminho), {
-    ...rest,
-    headers: {
-      ...obterHeadersAutenticados(),
-      ...(headersExtras || {})
-    }
-  });
+  let resposta;
+  try {
+    resposta = await fetch(montarUrlApi(caminho), {
+      ...rest,
+      headers: {
+        ...obterHeadersAutenticados(),
+        ...(headersExtras || {})
+      }
+    });
+  } catch (err) {
+    throw new Error(mensagemErroAmigavel(err));
+  }
 
   const payload = await resposta.json().catch(() => ({}));
   if (!resposta.ok) {
@@ -73,15 +76,20 @@ export async function apiFetch(caminho, options = {}) {
 export async function apiFetchFormData(caminho, formData, options = {}) {
   const token = obterToken();
   const { headers: headersExtras, ...rest } = options;
-  const resposta = await fetch(montarUrlApi(caminho), {
-    method: "POST",
-    ...rest,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(headersExtras || {})
-    },
-    body: formData
-  });
+  let resposta;
+  try {
+    resposta = await fetch(montarUrlApi(caminho), {
+      method: "POST",
+      ...rest,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(headersExtras || {})
+      },
+      body: formData
+    });
+  } catch (err) {
+    throw new Error(mensagemErroAmigavel(err, { contexto: "upload" }));
+  }
 
   const payload = await resposta.json().catch(() => ({}));
   if (!resposta.ok) {

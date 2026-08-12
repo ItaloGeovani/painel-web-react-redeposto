@@ -15,6 +15,7 @@ function fmtData(iso) {
 
 /**
  * Downloads manuais do GasPass PDV (mesmo latest.json do updater).
+ * Usado no super_admin e no painel web do frentista.
  */
 export default function SuperAdminDownloadsSecao() {
   const [dados, setDados] = useState(null);

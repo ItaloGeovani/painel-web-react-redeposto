@@ -9,6 +9,7 @@ const RELEASES_DIR = path.resolve(REPO_ROOT, "servidor-go", "releases");
 const NSIS_DIR = path.resolve(FRONT_ROOT, "src-tauri", "target", "release", "bundle", "nsis");
 
 const DEFAULT_RELEASES_URL = "https://gaspassapp.com.br/releases/";
+const STABLE_INSTALLER = "GasPass-PDV-Setup.exe";
 
 function applyEnvFile(name, { overwrite = false } = {}) {
   const p = path.join(FRONT_ROOT, name);
@@ -43,35 +44,47 @@ function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-function findNsisZip(version) {
+function listNsis() {
   if (!fs.existsSync(NSIS_DIR)) {
     throw new Error(`Pasta NSIS não encontrada: ${NSIS_DIR}`);
   }
-  const files = fs.readdirSync(NSIS_DIR);
-  const zipName = files.find(
-    (f) =>
-      f.toLowerCase().endsWith(".nsis.zip") &&
-      !f.toLowerCase().endsWith(".nsis.zip.sig") &&
-      f.includes(version)
-  );
-  if (!zipName) return null;
-  const zipPath = path.join(NSIS_DIR, zipName);
-  const sigPath = `${zipPath}.sig`;
-  if (!fs.existsSync(sigPath)) return null;
-  return { zipName, zipPath, sigPath };
+  return fs.readdirSync(NSIS_DIR);
 }
 
-function copyInstallerExe() {
-  if (!fs.existsSync(NSIS_DIR)) return null;
-  const exeName = fs
-    .readdirSync(NSIS_DIR)
-    .find((f) => f.toLowerCase().endsWith(".exe") && f.toLowerCase().includes("setup"));
-  if (!exeName) return null;
-  const installerName = "GasPass-PDV-Setup.exe";
-  const destExe = path.join(RELEASES_DIR, installerName);
-  fs.copyFileSync(path.join(NSIS_DIR, exeName), destExe);
-  console.log(`Copiado: ${destExe} (de ${exeName})`);
-  return installerName;
+/** Prefer artefactos da versão pedida (evita copiar 0.1.1 antigo). */
+function findUpdaterPackage(version) {
+  const files = listNsis();
+
+  const zipName = files.find(
+    (f) =>
+      f.includes(version) &&
+      f.toLowerCase().endsWith(".nsis.zip") &&
+      !f.toLowerCase().endsWith(".sig")
+  );
+  if (zipName) {
+    const zipPath = path.join(NSIS_DIR, zipName);
+    const sigPath = `${zipPath}.sig`;
+    if (fs.existsSync(sigPath)) {
+      return { kind: "zip", fileName: zipName, filePath: zipPath, sigPath };
+    }
+  }
+
+  const exeName = files.find(
+    (f) =>
+      f.includes(version) &&
+      f.toLowerCase().endsWith("-setup.exe") &&
+      !f.toLowerCase().endsWith(".sig")
+  );
+  if (exeName) {
+    const exePath = path.join(NSIS_DIR, exeName);
+    const sigPath = `${exePath}.sig`;
+    if (fs.existsSync(sigPath)) {
+      return { kind: "exe", fileName: exeName, filePath: exePath, sigPath };
+    }
+    return { kind: "exe-unsigned", fileName: exeName, filePath: exePath, sigPath: null };
+  }
+
+  return null;
 }
 
 function main() {
@@ -83,28 +96,32 @@ function main() {
 
   ensureDir(RELEASES_DIR);
 
-  const zip = findNsisZip(version);
-  const installerName = copyInstallerExe();
-
-  if (!zip && !installerName) {
-    throw new Error(`Nenhum artefacto NSIS em ${NSIS_DIR}`);
-  }
-
-  if (!zip && !allowUnsigned) {
+  const pkg = findUpdaterPackage(version);
+  if (!pkg) {
     throw new Error(
-      `Não achei .nsis.zip/.sig da versão ${version}. Gere as chaves e rode npm run build:release de novo.`
+      `Não achei instalador da versão ${version} em ${NSIS_DIR}. Arquivos: ${listNsis().join(", ") || "(vazio)"}`
     );
   }
 
-  if (zip) {
-    const destZip = path.join(RELEASES_DIR, zip.zipName);
-    const destSig = path.join(RELEASES_DIR, `${zip.zipName}.sig`);
-    fs.copyFileSync(zip.zipPath, destZip);
-    fs.copyFileSync(zip.sigPath, destSig);
-    console.log(`Copiado: ${destZip}`);
+  if (!pkg.sigPath && !allowUnsigned) {
+    throw new Error(
+      `Instalador ${pkg.fileName} sem .sig. Assinatura updater incompleta.`
+    );
+  }
+
+  // Copia artefacto versionado + instalador estável
+  const destPkg = path.join(RELEASES_DIR, pkg.fileName);
+  fs.copyFileSync(pkg.filePath, destPkg);
+  console.log(`Copiado: ${destPkg}`);
+
+  const destStable = path.join(RELEASES_DIR, STABLE_INSTALLER);
+  fs.copyFileSync(pkg.filePath, destStable);
+  console.log(`Copiado: ${destStable} (de ${pkg.fileName})`);
+
+  if (pkg.sigPath) {
+    const destSig = path.join(RELEASES_DIR, `${pkg.fileName}.sig`);
+    fs.copyFileSync(pkg.sigPath, destSig);
     console.log(`Copiado: ${destSig}`);
-  } else {
-    console.warn("Sem .nsis.zip/.sig — latest.json sem artefacto de auto-update.");
   }
 
   const releasesUrl = String(process.env.RELEASES_URL || DEFAULT_RELEASES_URL).trim();
@@ -115,37 +132,30 @@ function main() {
 
   const base = releasesUrl.endsWith("/") ? releasesUrl : `${releasesUrl}/`;
   const latestPath = path.join(RELEASES_DIR, "latest.json");
-  let existing = {};
-  if (fs.existsSync(latestPath)) {
-    try {
-      existing = JSON.parse(fs.readFileSync(latestPath, "utf8"));
-    } catch {
-      existing = {};
-    }
-  }
 
-  const platforms = { ...(existing.platforms || {}) };
-  if (zip) {
+  const platforms = {};
+  if (pkg.sigPath) {
+    // Mesmo conteúdo do .exe assinado — URL estável, sem espaço no nome
     platforms["windows-x86_64"] = {
-      signature: fs.readFileSync(zip.sigPath, "utf8").trim(),
-      url: `${base}${zip.zipName}`
+      signature: fs.readFileSync(pkg.sigPath, "utf8").trim(),
+      url: `${base}${STABLE_INSTALLER}`
     };
   }
 
   const latest = {
     version,
-    notes: zip
+    notes: pkg.sigPath
       ? `GasPass PDV ${version}`
-      : `GasPass PDV ${version} (instalador manual — auto-update pendente de chave)`,
+      : `GasPass PDV ${version} (instalador manual — sem assinatura updater)`,
     pub_date: new Date().toISOString(),
     platforms,
-    ...(installerName ? { installer_url: `${base}${installerName}` } : {})
+    installer_url: `${base}${STABLE_INSTALLER}`
   };
 
   fs.writeFileSync(latestPath, `${JSON.stringify(latest, null, 2)}\n`, "utf8");
   console.log(`Atualizado: ${latestPath}`);
-  if (zip) console.log(`Updater URL: ${base}${zip.zipName}`);
-  if (installerName) console.log(`Installer URL: ${base}${installerName}`);
+  if (pkg.sigPath) console.log(`Updater URL: ${platforms["windows-x86_64"].url}`);
+  console.log(`Installer URL: ${latest.installer_url}`);
 }
 
 try {

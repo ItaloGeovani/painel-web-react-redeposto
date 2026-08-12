@@ -100,12 +100,19 @@ function defaultKeyPath() {
 }
 
 function loadPrivateKey(keyPath) {
-  if (process.env.TAURI_SIGNING_PRIVATE_KEY) return true;
-  if (fs.existsSync(keyPath)) {
+  if (!process.env.TAURI_SIGNING_PRIVATE_KEY && fs.existsSync(keyPath)) {
+    // Prefer path: CLI lê o arquivo; conteúdo no env às vezes falha no Windows
+    process.env.TAURI_SIGNING_PRIVATE_KEY_PATH = keyPath;
     process.env.TAURI_SIGNING_PRIVATE_KEY = fs.readFileSync(keyPath, "utf8");
-    return true;
   }
-  return false;
+  if (!process.env.TAURI_SIGNING_PRIVATE_KEY && !process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) {
+    return false;
+  }
+  // Chave gerada com --ci (sem senha): precisa existir a var, senão o Tauri pede Password:
+  if (process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD == null) {
+    process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "";
+  }
+  return true;
 }
 
 function syncPubkeyFromPubFile(tauriConf, keyPath) {

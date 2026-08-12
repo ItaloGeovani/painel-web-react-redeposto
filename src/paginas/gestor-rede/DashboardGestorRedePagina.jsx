@@ -20,6 +20,7 @@ import CombustiveisRedeSecao from "./CombustiveisRedeSecao";
 import GestorGatewaysPagamentoSecao from "./GestorGatewaysPagamentoSecao";
 import GestorConfiguracoesSecao from "./GestorConfiguracoesSecao";
 import UsuariosPerfisPagina from "./usuarios-perfis/UsuariosPerfisPagina";
+import SuperAdminDownloadsSecao from "../super-admin/SuperAdminDownloadsSecao";
 
 function GestorConteudo({ rede, carregandoRede, onRedeRefresh }) {
   const { secao } = useParams();
@@ -73,6 +74,8 @@ function GestorConteudo({ rede, carregandoRede, onRedeRefresh }) {
       return <GestorConfiguracoesSecao />;
     case "auditoria":
       return <GestorRedeAuditoriaSecao />;
+    case "downloads":
+      return <SuperAdminDownloadsSecao />;
     default:
       return null;
   }

@@ -17,14 +17,23 @@ import { AbaCampanhas } from "../super-admin/RedeDetalhesSecao";
 import FrentistaValidarVoucherSecao from "./FrentistaValidarVoucherSecao";
 import FrentistaRelatoriosSecao from "./FrentistaRelatoriosSecao";
 import AbaPremiosRede from "../super-admin/AbaPremiosRede";
+import SuperAdminDownloadsSecao from "../super-admin/SuperAdminDownloadsSecao";
+
+function menusFrentistaVisiveis() {
+  if (isDesktop) {
+    return MENUS_FRENTISTA.filter((m) => !m.somenteWeb);
+  }
+  return MENUS_FRENTISTA;
+}
 
 function FrentistaConteudo({ rede, carregandoRede, onRedeRefresh }) {
   const { secao } = useParams();
-  const menuConfig = menuPorId(MENUS_FRENTISTA, secao);
-  const idsValidos = MENUS_FRENTISTA.map((m) => m.id);
+  const menus = menusFrentistaVisiveis();
+  const menuConfig = menuPorId(menus, secao);
+  const idsValidos = menus.map((m) => m.id);
 
   if (!idsValidos.includes(secao)) {
-    return <Navigate to={`${PREFIXO_FRENTISTA}/${MENUS_FRENTISTA[0].id}`} replace />;
+    return <Navigate to={`${PREFIXO_FRENTISTA}/${menus[0].id}`} replace />;
   }
 
   if (carregandoRede) {
@@ -63,6 +72,8 @@ function FrentistaConteudo({ rede, carregandoRede, onRedeRefresh }) {
       return <AbaVouchersRede rede={rede} />;
     case "relatorios":
       return <FrentistaRelatoriosSecao />;
+    case "downloads":
+      return <SuperAdminDownloadsSecao />;
     default:
       return null;
   }
@@ -78,7 +89,8 @@ function FrentistaShell({
   onRedeRefresh
 }) {
   const { secao } = useParams();
-  const menuConfig = menuPorId(MENUS_FRENTISTA, secao);
+  const menus = menusFrentistaVisiveis();
+  const menuConfig = menuPorId(menus, secao);
 
   const ocultarLinhaRede = secao === "ler-voucher";
 
@@ -125,7 +137,10 @@ function FrentistaShell({
 }
 
 export default function DashboardFrentistaPagina({ sessao, onSair }) {
-  const itensMenu = useMemo(() => menusComPath(MENUS_FRENTISTA, PREFIXO_FRENTISTA), []);
+  const itensMenu = useMemo(
+    () => menusComPath(menusFrentistaVisiveis(), PREFIXO_FRENTISTA),
+    []
+  );
   const [rede, setRede] = useState(null);
   const [postoNome, setPostoNome] = useState("");
   const [carregandoRede, setCarregandoRede] = useState(true);
@@ -185,7 +200,7 @@ export default function DashboardFrentistaPagina({ sessao, onSair }) {
 
   return (
     <Routes>
-      <Route index element={<Navigate to={MENUS_FRENTISTA[0].id} replace />} />
+      <Route index element={<Navigate to={menusFrentistaVisiveis()[0].id} replace />} />
       <Route
         path=":secao"
         element={
@@ -200,7 +215,7 @@ export default function DashboardFrentistaPagina({ sessao, onSair }) {
           />
         }
       />
-      <Route path="*" element={<Navigate to={MENUS_FRENTISTA[0].id} replace />} />
+      <Route path="*" element={<Navigate to={menusFrentistaVisiveis()[0].id} replace />} />
     </Routes>
   );
 }

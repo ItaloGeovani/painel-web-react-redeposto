@@ -21,6 +21,7 @@ import GestorRedeAuditoriaSecao from "../gestor-rede/GestorRedeAuditoriaSecao";
 import GestorRedeRelatoriosSecao from "../gestor-rede/GestorRedeRelatoriosSecao";
 import GestorConfiguracoesSecao from "../gestor-rede/GestorConfiguracoesSecao";
 import GestorGatewaysPagamentoSecao from "../gestor-rede/GestorGatewaysPagamentoSecao";
+import SuperAdminDownloadsSecao from "../super-admin/SuperAdminDownloadsSecao";
 
 function GerenteConteudo({ rede, carregandoRede, idPosto, nomePostoExibicao, onRedeRefresh }) {
   const { secao } = useParams();
@@ -97,6 +98,8 @@ function GerenteConteudo({ rede, carregandoRede, idPosto, nomePostoExibicao, onR
       return <GestorConfiguracoesSecao />;
     case "auditoria":
       return <GestorRedeAuditoriaSecao />;
+    case "downloads":
+      return <SuperAdminDownloadsSecao />;
     default:
       return null;
   }

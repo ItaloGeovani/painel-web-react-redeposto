@@ -11,6 +11,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            use tauri::Manager;
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -18,6 +20,13 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Por enquanto: DevTools no boot (Network / Console).
+            // Alternar com F12 ou Ctrl+Shift+I.
+            if let Some(window) = app.get_webview_window("main") {
+                window.open_devtools();
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

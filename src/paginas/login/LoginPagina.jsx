@@ -4,6 +4,7 @@ import CampoTexto from "../../componentes/CampoTexto";
 import { isDesktop } from "../../configuracao/appTarget";
 import { loginPainel } from "../../servicos/autenticacaoServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import { mensagemErroAmigavel } from "../../utilitarios/mensagemErroAmigavel";
 
 const LEMBRAR_KEY = "gaspass_lembrar_email";
 const EMAIL_SALVO_KEY = "gaspass_email_salvo";
@@ -107,7 +108,7 @@ export default function LoginPagina({ onLoginSucesso }) {
 
       toastSucesso("Login realizado com sucesso.");
     } catch (err) {
-      toastErro(err.message || "Nao foi possivel fazer login.");
+      toastErro(mensagemErroAmigavel(err, { contexto: "login" }) || "Nao foi possivel fazer login.");
     } finally {
       setCarregando(false);
     }

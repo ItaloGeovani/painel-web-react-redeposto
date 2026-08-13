@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { obterConfigAppMobileRede, salvarConfigAppMobileRede } from "../../servicos/adminPlataformaServico";
+import { revogarSessoesClientesSuperAdmin } from "../../servicos/redesServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
 import { URL_BASE_API } from "../../configuracao/apiConfig";
 
@@ -19,6 +20,7 @@ export default function AbaAppMovelRede({ redeId, nomeRede }) {
   const [atualizadoEm, setAtualizadoEm] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [revogando, setRevogando] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!redeId) {
@@ -169,6 +171,42 @@ export default function AbaAppMovelRede({ redeId, nomeRede }) {
           </button>
         </div>
       </form>
+
+      <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid var(--borda, #ddd)" }}>
+        <h4 className="rede-detalhes__titulo-secao" style={{ marginBottom: 8, fontSize: "1rem" }}>
+          Forçar novo login (clientes do app)
+        </h4>
+        <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
+          Invalida as sessões dos clientes desta rede e limpa os tokens de push. Na próxima ação no app eles
+          precisam entrar de novo — útil após corrigir o FCM ou limpar tokens inválidos.
+        </p>
+        <button
+          type="button"
+          className="botao-secundario"
+          disabled={revogando || !redeId}
+          onClick={async () => {
+            const ok = window.confirm(
+              `Deslogar todos os clientes do app desta rede (${nomeRede || redeId})?\n\nEles precisarão fazer login novamente.`
+            );
+            if (!ok) {
+              return;
+            }
+            setRevogando(true);
+            try {
+              const resp = await revogarSessoesClientesSuperAdmin({ id_rede: redeId });
+              toastSucesso(
+                `Sessões revogadas: ${resp?.sessoes_revogadas ?? 0}. Tokens FCM removidos: ${resp?.tokens_fcm_removidos ?? 0}.`
+              );
+            } catch (err) {
+              toastErro(err.message || "Falha ao revogar sessões.");
+            } finally {
+              setRevogando(false);
+            }
+          }}
+        >
+          {revogando ? "Revogando..." : "Deslogar clientes desta rede"}
+        </button>
+      </div>
     </div>
   );
 }

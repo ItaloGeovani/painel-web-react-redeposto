@@ -42,6 +42,8 @@ function ResumoCard({ icon: Icon, label, value, valueClass = "", tone = "blue" }
 export default function AbaCarteiraRede({ rede, onSalvo, somenteLeituraMoeda = false }) {
   const [nome, setNome] = useState("");
   const [cotacao, setCotacao] = useState("1");
+  const [expiraAtiva, setExpiraAtiva] = useState(false);
+  const [expiraDias, setExpiraDias] = useState("7");
   const [salvando, setSalvando] = useState(false);
 
   function hidratarDoRede() {
@@ -52,11 +54,14 @@ export default function AbaCarteiraRede({ rede, onSalvo, somenteLeituraMoeda = f
     } else {
       setCotacao("1");
     }
+    const d = Number(rede.moeda_virtual_expira_dias) || 0;
+    setExpiraAtiva(d > 0);
+    setExpiraDias(d > 0 ? String(d) : "7");
   }
 
   useEffect(() => {
     hidratarDoRede();
-  }, [rede.id, rede.moeda_virtual_nome, rede.moeda_virtual_cotacao]);
+  }, [rede.id, rede.moeda_virtual_nome, rede.moeda_virtual_cotacao, rede.moeda_virtual_expira_dias]);
 
   const nomeExibicao = useMemo(() => {
     const n = String(nome || "").trim();
@@ -84,12 +89,21 @@ export default function AbaCarteiraRede({ rede, onSalvo, somenteLeituraMoeda = f
       toastErro("Cotacao deve ser um numero maior que zero.");
       return;
     }
+    let dias = 0;
+    if (expiraAtiva) {
+      dias = parseInt(String(expiraDias).replace(/\D/g, ""), 10);
+      if (!Number.isFinite(dias) || dias < 1 || dias > 365) {
+        toastErro("Informe dias de expiracao entre 1 e 365.");
+        return;
+      }
+    }
     setSalvando(true);
     try {
       await atualizarMoedaVirtualRede({
         id: rede.id,
         moeda_virtual_nome: nome.trim(),
-        moeda_virtual_cotacao: c
+        moeda_virtual_cotacao: c,
+        moeda_virtual_expira_dias: dias
       });
       toastSucesso("Configuracao da moeda virtual salva.");
       onSalvo?.();
@@ -164,6 +178,34 @@ export default function AbaCarteiraRede({ rede, onSalvo, somenteLeituraMoeda = f
                 disabled={somenteLeituraMoeda || salvando}
                 readOnly={somenteLeituraMoeda}
               />
+            </CampoComAjuda>
+
+            <CampoComAjuda
+              rotulo="Expiracao das moedas"
+              dica="Se ativo, cada credito novo (cashback, bonus, etc.) expira individualmente apos N dias. Saldo antigo nao e afetado."
+            >
+              <label className="form-rede__radio-linha" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={expiraAtiva}
+                  onChange={(e) => setExpiraAtiva(e.target.checked)}
+                  disabled={somenteLeituraMoeda || salvando}
+                />
+                Moedas expiram apos X dias
+              </label>
+              {expiraAtiva ? (
+                <input
+                  className="campo__input"
+                  style={{ marginTop: 8 }}
+                  placeholder="Dias (1–365)"
+                  inputMode="numeric"
+                  value={expiraDias}
+                  onChange={(e) => setExpiraDias(e.target.value)}
+                  aria-label="Dias para expirar cada credito"
+                  disabled={somenteLeituraMoeda || salvando}
+                  readOnly={somenteLeituraMoeda}
+                />
+              ) : null}
             </CampoComAjuda>
 
             {somenteLeituraMoeda ? (

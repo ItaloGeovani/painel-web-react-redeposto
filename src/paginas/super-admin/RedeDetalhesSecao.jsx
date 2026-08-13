@@ -1390,8 +1390,8 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
         vigencia_fim: vf,
         status: formCampanha.status || "ATIVA",
         tipo_beneficio: tipoBeneficio,
-        valida_no_app: true,
-        valida_no_posto_fisico: false,
+        valida_no_app: formCampanha.canal !== "posto_fisico",
+        valida_no_posto_fisico: formCampanha.canal === "posto_fisico",
         modalidade_desconto: formCampanha.modalidade_desconto || "NENHUM",
         base_desconto: formCampanha.base_desconto || "VALOR_COMPRA",
         valor_desconto: Number.isNaN(valorDesc) ? 0 : valorDesc,
@@ -1408,11 +1408,19 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
           formCampanha.base_desconto === "LITRO" ? formCampanha.ids_combustiveis_rede || [] : []
       };
       if (editandoId) {
-        await editarCampanhaRede({ ...base, id: editandoId });
+        const resp = await editarCampanhaRede({ ...base, id: editandoId });
         toastSucesso("Campanha atualizada.");
+        if (resp?.push?.disparado) {
+          toastSucesso("Push agendado para clientes do app.");
+        }
       } else {
-        await criarCampanhaRede(base);
+        const resp = await criarCampanhaRede(base);
         toastSucesso("Campanha criada.");
+        if (resp?.push?.disparado) {
+          toastSucesso("Push agendado para clientes do app.");
+        } else if (resp?.push?.motivo) {
+          toastErro(`Push não enviado: ${resp.push.motivo}`);
+        }
       }
       setFormCampanha({ ...estadoInicialCampanha });
       setEditandoId(null);

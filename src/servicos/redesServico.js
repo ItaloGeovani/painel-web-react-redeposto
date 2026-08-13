@@ -74,7 +74,8 @@ export async function atualizarMoedaVirtualRede(payload) {
   const body = gestorRedeLogado()
     ? {
         moeda_virtual_nome: payload.moeda_virtual_nome,
-        moeda_virtual_cotacao: payload.moeda_virtual_cotacao
+        moeda_virtual_cotacao: payload.moeda_virtual_cotacao,
+        moeda_virtual_expira_dias: Number(payload.moeda_virtual_expira_dias) || 0
       }
     : payload;
   const dados = await apiFetch(path, {
@@ -188,4 +189,26 @@ export async function buscarDiagnosticoPushRedeSuperAdmin(idRede) {
   }
   const qs = new URLSearchParams({ id_rede: rid });
   return apiFetch(`/v1/admin/redes/dev/push/diagnostico?${qs}`, { method: "GET" });
+}
+
+/**
+ * Invalida sessoes dos clientes do app (forca novo login) e limpa tokens FCM.
+ * @param {{ id_rede?: string, limpar_tokens_fcm?: boolean }} [opts]
+ */
+export async function revogarSessoesClientesSuperAdmin(opts = {}) {
+  if (!superAdminLogado()) {
+    throw new Error("Apenas administrador geral pode revogar sessoes.");
+  }
+  const corpo = {};
+  const rid = String(opts.id_rede || "").trim();
+  if (rid) {
+    corpo.id_rede = rid;
+  }
+  if (opts.limpar_tokens_fcm === false) {
+    corpo.limpar_tokens_fcm = false;
+  }
+  return apiFetch("/v1/admin/sessoes/revogar-clientes", {
+    method: "POST",
+    body: JSON.stringify(corpo)
+  });
 }

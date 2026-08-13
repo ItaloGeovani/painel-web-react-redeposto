@@ -17,11 +17,10 @@ export async function criarCampanhaRede(payload) {
   const path = prefixo
     ? `${prefixo}/campanhas/criar`
     : "/v1/admin/campanhas/dev/criar";
-  const dados = await apiFetch(path, {
+  return apiFetch(path, {
     method: "POST",
     body: JSON.stringify(payload)
   });
-  return dados?.campanha;
 }
 
 export async function editarCampanhaRede(payload) {
@@ -29,7 +28,7 @@ export async function editarCampanhaRede(payload) {
   const path = prefixo
     ? `${prefixo}/campanhas/editar`
     : "/v1/admin/campanhas/dev/editar";
-  await apiFetch(path, {
+  return apiFetch(path, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });

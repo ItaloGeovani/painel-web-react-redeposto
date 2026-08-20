@@ -1272,6 +1272,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
   const [salvando, setSalvando] = useState(false);
   const [campanhasExpanded, setCampanhasExpanded] = useState({});
   const [combustiveisRede, setCombustiveisRede] = useState([]);
+  const [postoRefCombustiveis, setPostoRefCombustiveis] = useState("");
 
   async function carregar() {
     setCarregando(true);
@@ -1294,11 +1295,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       (itens) => ({ ok: true, itens }),
       (err) => ({ ok: false, err })
     );
-    const combP = listarCombustiveisRede().then(
-      (itens) => ({ ok: true, itens }),
-      (err) => ({ ok: false, err })
-    );
-    const [rCamp, rPost, rComb] = await Promise.all([campanhasP, postosP, combP]);
+    const [rCamp, rPost] = await Promise.all([campanhasP, postosP]);
     if (rCamp.ok) {
       setCampanhas(rCamp.itens);
     } else {
@@ -1311,11 +1308,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       setPostos([]);
       toastErro(rPost.err?.message || "Falha ao carregar postos da rede.");
     }
-    if (rComb.ok) {
-      setCombustiveisRede(rComb.itens);
-    } else {
-      setCombustiveisRede([]);
-    }
+    setCombustiveisRede([]);
     setCarregando(false);
   }
 
@@ -1326,6 +1319,39 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
   useEffect(() => {
     setCampanhasExpanded({});
   }, [redeId]);
+
+  // Posto de referência para listar combustíveis no formulário LITRO.
+  useEffect(() => {
+    if (!mostrarForm) return;
+    const escopoPosto = String(formCampanha.id_posto || "").trim();
+    if (escopoPosto) {
+      setPostoRefCombustiveis(escopoPosto);
+      return;
+    }
+    setPostoRefCombustiveis((atual) => {
+      if (atual && postos.some((p) => p.id === atual)) return atual;
+      return postos[0]?.id || "";
+    });
+  }, [mostrarForm, formCampanha.id_posto, postos]);
+
+  useEffect(() => {
+    if (somenteLeitura || !mostrarForm || !postoRefCombustiveis) {
+      if (!mostrarForm) setCombustiveisRede([]);
+      return undefined;
+    }
+    let cancelado = false;
+    (async () => {
+      try {
+        const itens = await listarCombustiveisRede(postoRefCombustiveis);
+        if (!cancelado) setCombustiveisRede(itens || []);
+      } catch {
+        if (!cancelado) setCombustiveisRede([]);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [mostrarForm, postoRefCombustiveis, somenteLeitura]);
 
   useEffect(() => {
     if (somenteLeitura || !mostrarForm || !redeId) {
@@ -1352,6 +1378,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
   function abrirNovo() {
     setEditandoId(null);
     setFormCampanha({ ...estadoInicialCampanha });
+    setPostoRefCombustiveis(postos[0]?.id || "");
     setMostrarForm(true);
   }
 
@@ -1403,6 +1430,7 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
       valor_maximo_compra:
         c.valor_maximo_compra != null && c.valor_maximo_compra !== "" ? String(c.valor_maximo_compra) : ""
     });
+    setPostoRefCombustiveis(c.id_posto || postos[0]?.id || "");
     setMostrarForm(true);
   }
 
@@ -1810,7 +1838,14 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
               <select
                 className="campo__input"
                 value={formCampanha.id_posto}
-                onChange={(e) => setFormCampanha((p) => ({ ...p, id_posto: e.target.value }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setFormCampanha((p) => ({
+                    ...p,
+                    id_posto: v,
+                    ids_combustiveis_rede: []
+                  }));
+                }}
                 aria-label="Escopo do posto"
               >
                 <option value="">Todos os postos da rede</option>
@@ -1976,12 +2011,36 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
                 <div className="form-rede__input-span2 form-rede--comb-campanha">
                   <CampoSecaoTitulo
                     id="label-comb-campanha"
-                    rotulo="Combustiveis validos (preco por litro vem do cadastro da rede)"
-                    dica="Selecione os combustíveis em que a campanha por litro pode ser aplicada."
+                    rotulo="Combustiveis validos (preco por litro vem do cadastro do posto)"
+                    dica="Selecione os combustíveis em que a campanha por litro pode ser aplicada. Em escopo rede, marque os tipos em um posto de referência — o sistema replica para os demais postos com o mesmo código/nome."
                   />
+                  {!formCampanha.id_posto ? (
+                    <CampoComAjuda
+                      rotulo="Posto de referencia"
+                      dica="Lista os combustíveis deste posto para você marcar os tipos. Ao salvar, a campanha vale nos outros postos com o mesmo combustível."
+                    >
+                      <select
+                        className="campo__input"
+                        value={postoRefCombustiveis}
+                        onChange={(e) => {
+                          setPostoRefCombustiveis(e.target.value);
+                          setFormCampanha((p) => ({ ...p, ids_combustiveis_rede: [] }));
+                        }}
+                        aria-label="Posto de referencia para combustiveis"
+                      >
+                        {postos.length === 0 ? <option value="">Nenhum posto</option> : null}
+                        {postos.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {(p.nome_fantasia && p.nome_fantasia.trim()) || p.nome} ({p.codigo})
+                          </option>
+                        ))}
+                      </select>
+                    </CampoComAjuda>
+                  ) : null}
                   {combustiveisRede.filter((x) => x && x.ativo).length === 0 ? (
                     <p className="rede-detalhes__ajuda">
-                      Nenhum combustivel ativo. Cadastre em <strong>Combustiveis</strong> antes de criar a campanha.
+                      Nenhum combustivel ativo neste posto. Cadastre em <strong>Combustiveis</strong> antes de
+                      criar a campanha.
                     </p>
                   ) : (
                     <div className="form-rede__checks-col" role="group" aria-labelledby="label-comb-campanha">
@@ -1995,6 +2054,12 @@ export function AbaCampanhas({ redeId, somenteLeitura = false }) {
                               onChange={() => alternarCombustivelCampanha(co.id)}
                             />
                             {co.nome}
+                            {co.preco_por_litro != null
+                              ? ` — ${Number(co.preco_por_litro).toLocaleString("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL"
+                                })}/L`
+                              : ""}
                           </label>
                         ))}
                     </div>

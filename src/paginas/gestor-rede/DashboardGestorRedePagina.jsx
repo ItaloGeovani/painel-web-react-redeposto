@@ -9,6 +9,10 @@ import {
 } from "../../constantes/rotas";
 import { buscarMinhaRedeGestor } from "../../servicos/redesServico";
 import { toastErro } from "../../servicos/toastServico";
+import { isDesktop } from "../../configuracao/appTarget";
+import { PAPEL_GESTOR_REDE } from "../../constantes/papeis";
+import { aplicarTituloDesktop } from "../../utilitarios/desktopJanela";
+import { nomeRedeDisplay } from "../../utilitarios/redeBranding";
 import AbaCarteiraRede from "../super-admin/AbaCarteiraRede";
 import AbaPremiosRede from "../super-admin/AbaPremiosRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
@@ -55,7 +59,7 @@ function GestorConteudo({ rede, carregandoRede, onRedeRefresh }) {
     case "postos":
       return <AbaPostos redeId={rede.id} />;
     case "combustiveis":
-      return <CombustiveisRedeSecao />;
+      return <CombustiveisRedeSecao redeId={rede.id} />;
     case "campanhas":
       return <AbaCampanhas redeId={rede.id} />;
     case "carteira":
@@ -146,6 +150,11 @@ export default function DashboardGestorRedePagina({ sessao, onSair }) {
       cancelado = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isDesktop || !rede) return;
+    void aplicarTituloDesktop(PAPEL_GESTOR_REDE, nomeRedeDisplay(rede));
+  }, [rede]);
 
   return (
     <Routes>

@@ -46,8 +46,8 @@ export const MENUS_SUPER_ADMIN = [
   {
     id: "downloads",
     nome: "Downloads",
-    titulo: "Downloads — GasPass PDV",
-    subtitulo: "Instalador e versao publicada do aplicativo desktop.",
+    titulo: "Downloads — GasPass Desktop",
+    subtitulo: "Instalador e versao publicada do aplicativo desktop (frentista, gestor e gerente).",
     grupo: "Sistema"
   }
 ];

@@ -1,7 +1,7 @@
 [package]
 name = "gaspass-pdv"
-version = "0.1.7"
-description = "GasPass PDV — validação de vouchers no posto"
+version = "0.1.8"
+description = "GasPass — PDV do frentista e painel do gestor/gerente"
 authors = ["GasPass"]
 license = ""
 repository = ""

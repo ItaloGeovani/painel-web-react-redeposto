@@ -23,7 +23,7 @@ export const MENUS_GESTOR_REDE = [
     id: "combustiveis",
     nome: "Combustiveis",
     titulo: "Combustiveis",
-    subtitulo: "Cadastro de combustiveis e preco por litro de referencia na rede.",
+    subtitulo: "Cadastro de combustiveis e preco por litro de cada posto.",
     grupo: "Cadastros"
   },
   {
@@ -111,7 +111,7 @@ export const MENUS_GERENTE_POSTO = [
     id: "combustiveis",
     nome: "Combustiveis",
     titulo: "Combustiveis",
-    subtitulo: "Combustiveis e preco por litro de referencia (mesmo catalogo da rede).",
+    subtitulo: "Combustiveis e preco por litro do seu posto.",
     grupo: "Cadastros"
   },
   {

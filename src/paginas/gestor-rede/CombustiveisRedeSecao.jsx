@@ -7,7 +7,10 @@ import {
   excluirCombustivelRede,
   listarCombustiveisRede
 } from "../../servicos/combustiveisRedeServico";
+import { listarPostosRede } from "../../servicos/postosServico";
+import { carregarSessao } from "../../servicos/sessaoServico";
 import { toastErro, toastSucesso } from "../../servicos/toastServico";
+import { PAPEL_GERENTE_POSTO } from "../../constantes/papeis";
 import CampoComAjuda, { TooltipInfo } from "../../componentes/CampoComAjuda";
 import Badge from "../../componentes/ui/Badge";
 import Button from "../../componentes/ui/Button";
@@ -32,7 +35,19 @@ function formatarBrl(n) {
   return Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export default function CombustiveisRedeSecao() {
+function nomePosto(p) {
+  if (!p) return "";
+  return (p.nome_fantasia || p.nome || p.codigo || p.id || "").trim();
+}
+
+export default function CombustiveisRedeSecao({ redeId: redeIdProp } = {}) {
+  const sessao = carregarSessao();
+  const ehGerente = sessao?.usuario?.papel === PAPEL_GERENTE_POSTO;
+  const idPostoSessao = String(sessao?.usuario?.id_posto || "").trim();
+  const redeId = String(redeIdProp || sessao?.usuario?.id_rede || "").trim();
+
+  const [postos, setPostos] = useState([]);
+  const [idPosto, setIdPosto] = useState(ehGerente ? idPostoSessao : "");
   const [itens, setItens] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [form, setForm] = useState(formVazio);
@@ -40,10 +55,47 @@ export default function CombustiveisRedeSecao() {
   const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
+  useEffect(() => {
+    let cancelado = false;
+    async function carregarPostos() {
+      if (ehGerente) {
+        if (!cancelado) {
+          setIdPosto(idPostoSessao);
+          setPostos([]);
+        }
+        return;
+      }
+      if (!redeId) return;
+      try {
+        const lista = await listarPostosRede(redeId);
+        if (cancelado) return;
+        setPostos(lista || []);
+        setIdPosto((atual) => {
+          if (atual && (lista || []).some((p) => p.id === atual)) return atual;
+          return lista?.[0]?.id || "";
+        });
+      } catch (err) {
+        if (!cancelado) {
+          setPostos([]);
+          toastErro(err.message || "Falha ao carregar postos.");
+        }
+      }
+    }
+    carregarPostos();
+    return () => {
+      cancelado = true;
+    };
+  }, [redeId, ehGerente, idPostoSessao]);
+
   async function carregar() {
+    if (!idPosto) {
+      setItens([]);
+      setCarregando(false);
+      return;
+    }
     setCarregando(true);
     try {
-      const lista = await listarCombustiveisRede();
+      const lista = await listarCombustiveisRede(idPosto);
       setItens(lista);
     } catch (err) {
       setItens([]);
@@ -55,7 +107,7 @@ export default function CombustiveisRedeSecao() {
 
   useEffect(() => {
     carregar();
-  }, []);
+  }, [idPosto]);
 
   function fecharModal() {
     if (salvando) return;
@@ -65,6 +117,10 @@ export default function CombustiveisRedeSecao() {
   }
 
   function abrirNovo() {
+    if (!idPosto) {
+      toastErro("Selecione um posto antes de cadastrar.");
+      return;
+    }
     setEditandoId(null);
     setForm({ ...formVazio });
     setModalAberto(true);
@@ -85,6 +141,10 @@ export default function CombustiveisRedeSecao() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (!idPosto) {
+      toastErro("Selecione um posto.");
+      return;
+    }
     const nome = String(form.nome || "").trim();
     if (!nome) {
       toastErro("Informe o nome do combustivel.");
@@ -101,6 +161,7 @@ export default function CombustiveisRedeSecao() {
       return;
     }
     const payload = {
+      id_posto: idPosto,
       nome,
       codigo: String(form.codigo || "").trim(),
       descricao: String(form.descricao || "").trim(),
@@ -201,15 +262,48 @@ export default function CombustiveisRedeSecao() {
     ];
   }
 
+  const postoAtual = postos.find((p) => p.id === idPosto);
+  const labelPostoGerente = ehGerente
+    ? "Seu posto"
+    : postoAtual
+      ? nomePosto(postoAtual)
+      : "posto selecionado";
+
   return (
     <div className="combustiveis-rede-secao">
       <p className="rede-detalhes__ajuda">
-        Cadastre os combustiveis ofertados na rede e o <strong>preco atual por litro</strong> (referencia para
-        precificacao e outras funcionalidades). Gestor e gerente de posto podem editar.
+        Cadastre os combustiveis ofertados em cada posto e o <strong>preco atual por litro</strong> daquele
+        posto (referencia para precificacao e outras funcionalidades). Gestor escolhe o posto; gerente edita
+        apenas o seu.
       </p>
+
+      {!ehGerente ? (
+        <div className="form-rede" style={{ marginBottom: 16 }}>
+          <CampoComAjuda rotulo="Posto" dica="Cada posto tem seu próprio catálogo e preços.">
+            <select
+              className="campo__input"
+              value={idPosto}
+              onChange={(e) => setIdPosto(e.target.value)}
+              aria-label="Posto"
+            >
+              {postos.length === 0 ? <option value="">Nenhum posto cadastrado</option> : null}
+              {postos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {nomePosto(p)}
+                </option>
+              ))}
+            </select>
+          </CampoComAjuda>
+        </div>
+      ) : (
+        <p className="rede-detalhes__ajuda" style={{ marginBottom: 12 }}>
+          Editando combustiveis do posto vinculado a sua conta.
+        </p>
+      )}
+
       <div className="rede-detalhes__linha-titulo" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Lista</h2>
-        <Button type="button" variant="primary" icon={Plus} onClick={abrirNovo}>
+        <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Lista — {labelPostoGerente}</h2>
+        <Button type="button" variant="primary" icon={Plus} onClick={abrirNovo} disabled={!idPosto}>
           Novo combustivel
         </Button>
       </div>
@@ -219,7 +313,11 @@ export default function CombustiveisRedeSecao() {
         data={itens}
         getRowId={(row) => row.id}
         loading={carregando}
-        emptyMessage="Nenhum combustivel cadastrado ainda."
+        emptyMessage={
+          idPosto
+            ? "Nenhum combustivel cadastrado neste posto."
+            : "Selecione um posto para ver os combustiveis."
+        }
         showExpandColumn
         getExpandedItems={itensExpandCombustivel}
       />
@@ -228,7 +326,7 @@ export default function CombustiveisRedeSecao() {
         open={modalAberto}
         onClose={fecharModal}
         title={editandoId ? "Editar combustivel" : "Novo combustivel"}
-        description="Informe o nome e o preco por litro. Codigo e descricao sao opcionais."
+        description="Informe o nome e o preco por litro deste posto. Codigo e descricao sao opcionais."
         size="md"
         footer={
           <ModalActions>
@@ -253,10 +351,10 @@ export default function CombustiveisRedeSecao() {
                 aria-label="Nome"
               />
             </CampoComAjuda>
-            <CampoComAjuda rotulo="Codigo" dica="Código opcional e único dentro da rede.">
+            <CampoComAjuda rotulo="Codigo" dica="Código opcional e único dentro do posto.">
               <input
                 className="campo__input"
-                placeholder="Codigo (opcional, unico na rede)"
+                placeholder="Codigo (opcional, unico no posto)"
                 value={form.codigo}
                 onChange={(e) => setForm((f) => ({ ...f, codigo: e.target.value }))}
                 aria-label="Codigo"
@@ -285,7 +383,7 @@ export default function CombustiveisRedeSecao() {
                 aria-label="Descricao"
               />
             </CampoComAjuda>
-            <CampoComAjuda rotulo="Preco por litro" dica="Preço de referência em R$ por litro.">
+            <CampoComAjuda rotulo="Preco por litro" dica="Preço deste posto em R$ por litro.">
               <input
                 className="campo__input"
                 placeholder="Preco por litro (R$)"
@@ -303,7 +401,7 @@ export default function CombustiveisRedeSecao() {
                 onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
               />
               Ativo
-              <TooltipInfo texto="Combustível ativo pode ser usado nas campanhas por litro." />
+              <TooltipInfo texto="Combustível ativo pode ser usado nas campanhas por litro deste posto." />
             </label>
           </div>
         </form>

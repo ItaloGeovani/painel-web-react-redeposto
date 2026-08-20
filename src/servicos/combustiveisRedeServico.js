@@ -9,9 +9,16 @@ function prefixoGestorGerenteObrigatorio() {
   return p;
 }
 
-export async function listarCombustiveisRede() {
+export async function listarCombustiveisRede(idPosto) {
   const prefixo = prefixoGestorGerenteObrigatorio();
-  const dados = await apiFetch(`${prefixo}/combustiveis/listar`, { method: "GET" });
+  const q = new URLSearchParams();
+  if (idPosto) {
+    q.set("id_posto", String(idPosto));
+  }
+  const qs = q.toString();
+  const dados = await apiFetch(`${prefixo}/combustiveis/listar${qs ? `?${qs}` : ""}`, {
+    method: "GET"
+  });
   return dados?.itens || [];
 }
 

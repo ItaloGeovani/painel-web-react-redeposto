@@ -8,8 +8,7 @@ import {
   PAPEL_GESTOR_REDE,
   PAPEL_SUPER_ADMIN
 } from "./constantes/papeis";
-import { homePathPorPapel, PREFIXO_FRENTISTA } from "./constantes/rotas";
-import { MENUS_FRENTISTA } from "./constantes/menusPorPapel";
+import { homePathPorPapel } from "./constantes/rotas";
 import { isDesktop } from "./configuracao/appTarget";
 import LoginPagina from "./paginas/login/LoginPagina";
 import PapelNaoSuportadoPagina from "./paginas/nao-suportado/PapelNaoSuportadoPagina";
@@ -19,13 +18,21 @@ import DashboardFrentistaPagina from "./paginas/frentista/DashboardFrentistaPagi
 import DashboardSuperAdminPagina from "./paginas/super-admin/DashboardSuperAdminPagina";
 import { carregarSessao, limparSessao, salvarSessao } from "./servicos/sessaoServico";
 import { EVENTO_TOAST, toastErro } from "./servicos/toastServico";
+import {
+  aplicarJanelaPorPapel,
+  aplicarTituloDesktop,
+  papelDesktopPermitido
+} from "./utilitarios/desktopJanela";
 
-const HOME_FRENTISTA = `${PREFIXO_FRENTISTA}/${MENUS_FRENTISTA[0].id}`;
+function sessaoDesktopValida(s) {
+  const papel = s?.usuario?.papel;
+  return Boolean(papel && papelDesktopPermitido(papel));
+}
 
 export default function App() {
   const [sessao, setSessao] = useState(() => {
     const s = carregarSessao();
-    if (isDesktop && s?.usuario?.papel && s.usuario.papel !== PAPEL_FRENTISTA) {
+    if (isDesktop && s && !sessaoDesktopValida(s)) {
       limparSessao();
       return null;
     }
@@ -43,6 +50,10 @@ export default function App() {
         evento?.detail?.mensagem || "Sua sessao expirou. Faca login novamente para continuar."
       );
       navigate("/login", { replace: true });
+      if (isDesktop) {
+        void aplicarJanelaPorPapel(null);
+        void aplicarTituloDesktop(null);
+      }
     }
 
     window.addEventListener("gaspass:sessao-expirada", onSessaoExpirada);
@@ -82,31 +93,49 @@ export default function App() {
     };
   }, []);
 
-  // Desktop: MemoryRouter inicia em /frentista/...; sem sessão, manda para login.
+  // Desktop: sem sessão → login; com sessão → ajustar janela ao papel.
   useEffect(() => {
     if (!isDesktop) return;
     if (!sessao) {
       navigate("/login", { replace: true });
+      void aplicarJanelaPorPapel(null);
+      void aplicarTituloDesktop(null);
+      return;
     }
+    const papel = sessao.usuario?.papel;
+    void aplicarJanelaPorPapel(papel);
+    void aplicarTituloDesktop(papel);
   }, [sessao, navigate]);
 
   function onSairPainel() {
     limparSessao();
     setSessao(null);
     navigate("/login", { replace: true });
+    if (isDesktop) {
+      void aplicarJanelaPorPapel(null);
+      void aplicarTituloDesktop(null);
+    }
   }
 
   function onLoginSucesso(novaSessao) {
     const papel = novaSessao?.usuario?.papel;
-    if (isDesktop && papel !== PAPEL_FRENTISTA) {
+    if (isDesktop && !papelDesktopPermitido(papel)) {
       limparSessao();
-      toastErro("GasPass PDV é exclusivo para frentistas. Use o painel web para outros perfis.");
+      toastErro(
+        "Este perfil não é suportado no app desktop. Use o painel web (super-admin e outros)."
+      );
       return;
     }
     salvarSessao(novaSessao);
     setSessao(novaSessao);
-    navigate(isDesktop ? HOME_FRENTISTA : homePathPorPapel(papel), { replace: true });
+    if (isDesktop) {
+      void aplicarJanelaPorPapel(papel);
+      void aplicarTituloDesktop(papel);
+    }
+    navigate(homePathPorPapel(papel), { replace: true });
   }
+
+  const homeSessao = sessao ? homePathPorPapel(sessao.usuario?.papel) : "/login";
 
   return (
     <>
@@ -116,7 +145,7 @@ export default function App() {
           element={
             isDesktop ? (
               sessao ? (
-                <Navigate to={HOME_FRENTISTA} replace />
+                <Navigate to={homeSessao} replace />
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -130,10 +159,7 @@ export default function App() {
           path="/login"
           element={
             sessao ? (
-              <Navigate
-                to={isDesktop ? HOME_FRENTISTA : homePathPorPapel(sessao.usuario?.papel)}
-                replace
-              />
+              <Navigate to={homeSessao} replace />
             ) : (
               <LoginPagina onLoginSucesso={onLoginSucesso} />
             )
@@ -141,29 +167,27 @@ export default function App() {
         />
 
         {!isDesktop ? (
-          <>
-            <Route element={<ProtectedRoute sessao={sessao} papeisPermitidos={[PAPEL_SUPER_ADMIN]} />}>
-              <Route
-                path="/admin/*"
-                element={<DashboardSuperAdminPagina sessao={sessao} onSair={onSairPainel} />}
-              />
-            </Route>
-
-            <Route element={<ProtectedRoute sessao={sessao} papeisPermitidos={[PAPEL_GESTOR_REDE]} />}>
-              <Route
-                path="/gestor/*"
-                element={<DashboardGestorRedePagina sessao={sessao} onSair={onSairPainel} />}
-              />
-            </Route>
-
-            <Route element={<ProtectedRoute sessao={sessao} papeisPermitidos={[PAPEL_GERENTE_POSTO]} />}>
-              <Route
-                path="/gerente/*"
-                element={<DashboardGerentePostoPagina sessao={sessao} onSair={onSairPainel} />}
-              />
-            </Route>
-          </>
+          <Route element={<ProtectedRoute sessao={sessao} papeisPermitidos={[PAPEL_SUPER_ADMIN]} />}>
+            <Route
+              path="/admin/*"
+              element={<DashboardSuperAdminPagina sessao={sessao} onSair={onSairPainel} />}
+            />
+          </Route>
         ) : null}
+
+        <Route element={<ProtectedRoute sessao={sessao} papeisPermitidos={[PAPEL_GESTOR_REDE]} />}>
+          <Route
+            path="/gestor/*"
+            element={<DashboardGestorRedePagina sessao={sessao} onSair={onSairPainel} />}
+          />
+        </Route>
+
+        <Route element={<ProtectedRoute sessao={sessao} papeisPermitidos={[PAPEL_GERENTE_POSTO]} />}>
+          <Route
+            path="/gerente/*"
+            element={<DashboardGerentePostoPagina sessao={sessao} onSair={onSairPainel} />}
+          />
+        </Route>
 
         <Route element={<ProtectedRoute sessao={sessao} papeisPermitidos={[PAPEL_FRENTISTA]} />}>
           <Route
@@ -172,25 +196,23 @@ export default function App() {
           />
         </Route>
 
-        {!isDesktop ? (
-          <Route
-            path="/nao-suportado"
-            element={
-              sessao ? (
-                <PapelNaoSuportadoPagina sessao={sessao} onSair={onSairPainel} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-        ) : null}
+        <Route
+          path="/nao-suportado"
+          element={
+            sessao ? (
+              <PapelNaoSuportadoPagina sessao={sessao} onSair={onSairPainel} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
 
         <Route
           path="*"
           element={
             isDesktop ? (
               sessao ? (
-                <Navigate to={HOME_FRENTISTA} replace />
+                <Navigate to={homeSessao} replace />
               ) : (
                 <Navigate to="/login" replace />
               )

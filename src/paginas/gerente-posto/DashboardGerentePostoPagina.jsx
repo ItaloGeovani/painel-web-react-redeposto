@@ -10,6 +10,10 @@ import {
 import { buscarMinhaRedeGestor } from "../../servicos/redesServico";
 import { listarPostosRede } from "../../servicos/postosServico";
 import { toastErro } from "../../servicos/toastServico";
+import { isDesktop } from "../../configuracao/appTarget";
+import { PAPEL_GERENTE_POSTO } from "../../constantes/papeis";
+import { aplicarTituloDesktop } from "../../utilitarios/desktopJanela";
+import { nomeRedeDisplay } from "../../utilitarios/redeBranding";
 import AbaCarteiraRede from "../super-admin/AbaCarteiraRede";
 import AbaPremiosRede from "../super-admin/AbaPremiosRede";
 import AbaVouchersRede from "../super-admin/AbaVouchersRede";
@@ -191,6 +195,11 @@ export default function DashboardGerentePostoPagina({ sessao, onSair }) {
       cancelado = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isDesktop || !rede) return;
+    void aplicarTituloDesktop(PAPEL_GERENTE_POSTO, nomeRedeDisplay(rede));
+  }, [rede]);
 
   useEffect(() => {
     if (!rede?.id || !idPosto) {

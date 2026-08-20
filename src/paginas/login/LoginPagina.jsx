@@ -134,8 +134,10 @@ export default function LoginPagina({ onLoginSucesso }) {
             <LogoGasPass />
             {isDesktop ? (
               <>
-                <p className="gp-pdv-login-sub">GasPass PDV</p>
-                <p className="login-cabecalho__sub">Operação no posto</p>
+                <p className="gp-pdv-login-sub">GasPass Desktop</p>
+                <p className="login-cabecalho__sub">
+                  PDV do frentista ou painel do gestor / gerente
+                </p>
               </>
             ) : (
               <p className="login-cabecalho__sub">Painel Administrativo</p>
@@ -149,7 +151,11 @@ export default function LoginPagina({ onLoginSucesso }) {
               type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com ou código do frentista"
+              placeholder={
+                isDesktop
+                  ? "e-mail (gestor/gerente) ou código do frentista"
+                  : "seu@email.com ou código do frentista"
+              }
               autoComplete="username"
               className="campo--login-email"
               iconePrefixo={<IconeEnvelope />}

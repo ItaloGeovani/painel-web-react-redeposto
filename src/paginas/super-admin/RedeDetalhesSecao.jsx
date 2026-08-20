@@ -23,7 +23,14 @@ import AbaVouchersRede from "./AbaVouchersRede";
 import AbaAppMovelRede from "./AbaAppMovelRede";
 import AbaPremiosRede from "./AbaPremiosRede";
 
-function CampoSenhaComOlho({ value, onChange, placeholder, autoComplete = "new-password", required = false }) {
+function CampoSenhaComOlho({
+  value,
+  onChange,
+  placeholder,
+  autoComplete = "new-password",
+  required = false,
+  minLength
+}) {
   const [visivel, setVisivel] = useState(false);
   return (
     <div className="campo-senha-olho">
@@ -35,6 +42,7 @@ function CampoSenhaComOlho({ value, onChange, placeholder, autoComplete = "new-p
         value={value}
         onChange={onChange}
         required={required}
+        minLength={minLength}
       />
       <button
         type="button"
@@ -71,8 +79,212 @@ const estadoInicialEquipe = {
   telefone: "",
   senha: "",
   confirmar_senha: "",
-  papel: "frentista"
+  papel: "frentista",
+  id_posto: "",
+  ativo: true
 };
+
+function FormCamposEquipeMembro({ form, setForm, modo, postos = [], ocultarPosto = false }) {
+  const ehFrentista = form.papel === "frentista";
+  const minSenha = ehFrentista ? 2 : 6;
+  const criar = modo === "criar";
+
+  return (
+    <div className="form-rede__grid form-rede__grid--equipe-modal">
+      <CampoComAjuda rotulo="Perfil" dica="Define as permissões: frentista ou gerente do posto.">
+        <select
+          className="campo__input"
+          value={form.papel}
+          onChange={(e) => setForm((prev) => ({ ...prev, papel: e.target.value }))}
+        >
+          <option value="frentista">Frentista</option>
+          <option value="gerente_posto">Gerente de posto</option>
+        </select>
+      </CampoComAjuda>
+
+      {!ocultarPosto ? (
+        <CampoComAjuda rotulo="Posto vinculado" dica="Unidade à qual o membro ficará vinculado.">
+          <select
+            className="campo__input"
+            value={form.id_posto}
+            onChange={(e) => setForm((prev) => ({ ...prev, id_posto: e.target.value }))}
+            required
+          >
+            <option value="">Posto vinculado</option>
+            {(postos || []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {(p.nome_fantasia && String(p.nome_fantasia).trim()) || p.nome} ({p.codigo})
+              </option>
+            ))}
+          </select>
+        </CampoComAjuda>
+      ) : null}
+
+      <CampoComAjuda rotulo="Nome completo" dica="Nome do colaborador exibido no painel e relatórios.">
+        <input
+          className="campo__input"
+          placeholder="Nome completo"
+          value={form.nome}
+          onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
+          required
+        />
+      </CampoComAjuda>
+
+      {ehFrentista ? (
+        <CampoComAjuda
+          rotulo="Código"
+          dica="Código de acesso do frentista (1 ou mais caracteres). Único neste posto. Usado no login e na baixa de vouchers."
+        >
+          <input
+            className="campo__input"
+            type="text"
+            placeholder="Código (1 ou mais)"
+            value={form.codigo}
+            onChange={(e) => setForm((prev) => ({ ...prev, codigo: e.target.value }))}
+            minLength={1}
+            required
+            autoComplete="off"
+          />
+        </CampoComAjuda>
+      ) : (
+        <CampoComAjuda rotulo="Email" dica="Email de acesso ao painel para esse usuário.">
+          <input
+            className="campo__input"
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+            required
+          />
+        </CampoComAjuda>
+      )}
+
+      {ehFrentista && !criar && form.email ? (
+        <CampoComAjuda rotulo="E-mail (legado)" dica="E-mail legado opcional; frentistas acessam por código.">
+          <input
+            className="campo__input"
+            type="email"
+            placeholder="E-mail (legado, opcional)"
+            value={form.email}
+            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+          />
+        </CampoComAjuda>
+      ) : null}
+
+      <CampoComAjuda rotulo="Telefone" dica="Contato do colaborador (opcional).">
+        <input
+          className="campo__input"
+          placeholder="Telefone"
+          value={form.telefone}
+          onChange={(e) => setForm((prev) => ({ ...prev, telefone: e.target.value }))}
+        />
+      </CampoComAjuda>
+
+      <CampoComAjuda
+        rotulo={criar ? "Senha" : "Nova senha"}
+        dica={
+          ehFrentista
+            ? criar
+              ? "Senha inicial de acesso (mínimo de 2 caracteres)."
+              : "Deixe em branco para manter. Se preencher, mínimo de 2 caracteres."
+            : criar
+              ? "Senha inicial de acesso (mínimo de 6 caracteres)."
+              : "Deixe em branco para manter. Se preencher, mínimo de 6 caracteres."
+        }
+      >
+        <CampoSenhaComOlho
+          placeholder={
+            ehFrentista
+              ? criar
+                ? "Senha (mín. 2)"
+                : "Nova senha (opcional, mín. 2)"
+              : criar
+                ? "Senha (mín. 6)"
+                : "Nova senha (opcional, mín. 6)"
+          }
+          value={form.senha}
+          onChange={(e) => setForm((prev) => ({ ...prev, senha: e.target.value }))}
+          minLength={criar || form.senha ? minSenha : undefined}
+          required={criar}
+        />
+      </CampoComAjuda>
+
+      <CampoComAjuda
+        rotulo="Confirmar senha"
+        dica={criar ? "Repita a senha para evitar erro de digitação." : "Obrigatório apenas se informar nova senha."}
+      >
+        <CampoSenhaComOlho
+          placeholder={criar ? "Confirmar senha" : "Confirmar nova senha"}
+          value={form.confirmar_senha}
+          onChange={(e) => setForm((prev) => ({ ...prev, confirmar_senha: e.target.value }))}
+          minLength={criar || form.confirmar_senha ? minSenha : undefined}
+          required={criar}
+        />
+      </CampoComAjuda>
+
+      {modo === "editar" ? (
+        <CampoComAjuda rotulo="Status" dica="Desative para bloquear o acesso sem excluir o usuário.">
+          <label className="rede-detalhes__ajuda" style={{ display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.ativo)}
+              onChange={(e) => setForm((prev) => ({ ...prev, ativo: e.target.checked }))}
+            />
+            Usuario ativo
+          </label>
+        </CampoComAjuda>
+      ) : null}
+    </div>
+  );
+}
+
+function ModalEquipeMembro({
+  open,
+  onClose,
+  modo,
+  form,
+  setForm,
+  onSubmit,
+  salvando,
+  postos = [],
+  ocultarPosto = false,
+  formId = "form-equipe-membro-modal"
+}) {
+  const criar = modo === "criar";
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={criar ? "Adicionar membro" : "Editar membro"}
+      description={
+        criar
+          ? "Cadastre gerente ou frentista vinculado ao posto."
+          : "Altere os dados do membro. Deixe a senha em branco para manter a atual."
+      }
+      size="lg"
+      footer={
+        <ModalActions>
+          <Button type="button" variant="outline" onClick={onClose} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button type="submit" form={formId} variant="primary" disabled={salvando}>
+            {salvando ? "Salvando..." : criar ? "Criar usuario" : "Salvar alteracoes"}
+          </Button>
+        </ModalActions>
+      }
+    >
+      <form id={formId} className="form-rede form-rede--equipe" onSubmit={onSubmit}>
+        <FormCamposEquipeMembro
+          form={form}
+          setForm={setForm}
+          modo={modo}
+          postos={postos}
+          ocultarPosto={ocultarPosto}
+        />
+      </form>
+    </Modal>
+  );
+}
 
 const estadoInicialPosto = {
   nome: "",
@@ -283,7 +495,14 @@ function rotuloPapel(p) {
   }
 }
 
-export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey = 0, permiteEditarEquipe = false }) {
+export function ListaUsuariosRedePaginada({
+  redeId,
+  papeis,
+  idPosto,
+  refreshKey = 0,
+  permiteEditarEquipe = false,
+  onEditarMembro
+}) {
   const [pagina, setPagina] = useState(1);
   const [total, setTotal] = useState(0);
   const [itens, setItens] = useState([]);
@@ -292,17 +511,8 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
   const [editandoId, setEditandoId] = useState(null);
   const [postosEdicao, setPostosEdicao] = useState([]);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
-  const [formEdicao, setFormEdicao] = useState({
-    nome: "",
-    email: "",
-    codigo: "",
-    telefone: "",
-    papel: "frentista",
-    id_posto: "",
-    ativo: true,
-    senha: "",
-    confirmar_senha: ""
-  });
+  const [formEdicao, setFormEdicao] = useState({ ...estadoInicialEquipe });
+  const edicaoExterna = typeof onEditarMembro === "function";
 
   useEffect(() => {
     setPagina(1);
@@ -346,6 +556,10 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
   }, [redeId, papeis, idPosto, pagina, refreshKey, reloadTick]);
 
   async function abrirEdicao(u) {
+    if (edicaoExterna) {
+      onEditarMembro(u);
+      return;
+    }
     setEditandoId(u.id);
     setFormEdicao({
       nome: u.nome || "",
@@ -367,10 +581,29 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
     }
   }
 
+  function fecharEdicaoInterna() {
+    if (salvandoEdicao) return;
+    setEditandoId(null);
+    setFormEdicao({ ...estadoInicialEquipe });
+  }
+
   async function onSubmitEdicao(event) {
     event.preventDefault();
     if (!editandoId) {
       return;
+    }
+    if (formEdicao.papel === "frentista" && !String(formEdicao.codigo || "").trim()) {
+      toastErro("Informe o código de acesso do frentista.");
+      return;
+    }
+    const senhaEd = formEdicao.senha.trim();
+    const confirmarEd = formEdicao.confirmar_senha.trim();
+    if (senhaEd || confirmarEd) {
+      const minSenha = formEdicao.papel === "frentista" ? 2 : 6;
+      if (senhaEd.length < minSenha) {
+        toastErro(`Senha deve ter no mínimo ${minSenha} caracteres.`);
+        return;
+      }
     }
     setSalvandoEdicao(true);
     try {
@@ -394,6 +627,7 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
       await editarUsuarioEquipe(payload);
       toastSucesso("Usuario da equipe atualizado com sucesso.");
       setEditandoId(null);
+      setFormEdicao({ ...estadoInicialEquipe });
       setReloadTick((t) => t + 1);
     } catch (err) {
       toastErro(err.message || "Falha ao atualizar usuario.");
@@ -442,7 +676,7 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
       );
     }
     return cols;
-  }, [permiteEditarEquipe, redeId]);
+  }, [permiteEditarEquipe, edicaoExterna, onEditarMembro, redeId]);
 
   function itensExpandEquipe(u) {
     return [
@@ -474,108 +708,19 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
         }}
       />
 
-      {permiteEditarEquipe && editandoId ? (
-        <form className="form-rede form-rede--equipe" onSubmit={onSubmitEdicao} style={{ marginTop: 16 }}>
-          <p className="rede-detalhes__ajuda" style={{ marginBottom: 8 }}>
-            <strong>Editar membro da equipe</strong> — deixe senha em branco para manter a atual.
-          </p>
-          <div className="form-rede__grid">
-            <select
-              className="campo__input"
-              value={formEdicao.papel}
-              onChange={(e) => setFormEdicao((prev) => ({ ...prev, papel: e.target.value }))}
-            >
-              <option value="frentista">Frentista</option>
-              <option value="gerente_posto">Gerente de posto</option>
-            </select>
-            <select
-              className="campo__input"
-              value={formEdicao.id_posto}
-              onChange={(e) => setFormEdicao((prev) => ({ ...prev, id_posto: e.target.value }))}
-              required
-            >
-              <option value="">Posto vinculado</option>
-              {postosEdicao.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {(p.nome_fantasia && String(p.nome_fantasia).trim()) || p.nome} ({p.codigo})
-                </option>
-              ))}
-            </select>
-            <input
-              className="campo__input"
-              placeholder="Nome completo"
-              value={formEdicao.nome}
-              onChange={(e) => setFormEdicao((prev) => ({ ...prev, nome: e.target.value }))}
-              required
-            />
-            {formEdicao.papel === "frentista" ? (
-              <input
-                className="campo__input"
-                type="text"
-                placeholder="Código de acesso"
-                value={formEdicao.codigo}
-                onChange={(e) => setFormEdicao((prev) => ({ ...prev, codigo: e.target.value }))}
-                required
-                autoComplete="off"
-              />
-            ) : (
-              <input
-                className="campo__input"
-                type="email"
-                placeholder="Email"
-                value={formEdicao.email}
-                onChange={(e) => setFormEdicao((prev) => ({ ...prev, email: e.target.value }))}
-                required
-              />
-            )}
-            {formEdicao.papel === "frentista" && formEdicao.email ? (
-              <input
-                className="campo__input"
-                type="email"
-                placeholder="E-mail (legado, opcional)"
-                value={formEdicao.email}
-                onChange={(e) => setFormEdicao((prev) => ({ ...prev, email: e.target.value }))}
-              />
-            ) : null}
-            <input
-              className="campo__input"
-              placeholder="Telefone"
-              value={formEdicao.telefone}
-              onChange={(e) => setFormEdicao((prev) => ({ ...prev, telefone: e.target.value }))}
-            />
-            <label className="rede-detalhes__ajuda" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={formEdicao.ativo}
-                onChange={(e) => setFormEdicao((prev) => ({ ...prev, ativo: e.target.checked }))}
-              />
-              Usuario ativo
-            </label>
-            <CampoSenhaComOlho
-              placeholder="Nova senha (opcional)"
-              value={formEdicao.senha}
-              onChange={(e) => setFormEdicao((prev) => ({ ...prev, senha: e.target.value }))}
-            />
-            <CampoSenhaComOlho
-              placeholder="Confirmar nova senha"
-              value={formEdicao.confirmar_senha}
-              onChange={(e) => setFormEdicao((prev) => ({ ...prev, confirmar_senha: e.target.value }))}
-            />
-          </div>
-          <div className="form-rede__acoes">
-            <button className="botao-primario" type="submit" disabled={salvandoEdicao}>
-              {salvandoEdicao ? "Salvando..." : "Salvar alteracoes"}
-            </button>
-            <button
-              type="button"
-              className="botao-secundario"
-              onClick={() => setEditandoId(null)}
-              disabled={salvandoEdicao}
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
+      {permiteEditarEquipe && !edicaoExterna ? (
+        <ModalEquipeMembro
+          open={Boolean(editandoId)}
+          onClose={fecharEdicaoInterna}
+          modo="editar"
+          form={formEdicao}
+          setForm={setFormEdicao}
+          onSubmit={onSubmitEdicao}
+          salvando={salvandoEdicao}
+          postos={postosEdicao}
+          ocultarPosto={false}
+          formId="form-equipe-membro-lista"
+        />
       ) : null}
     </div>
   );
@@ -583,42 +728,110 @@ export function ListaUsuariosRedePaginada({ redeId, papeis, idPosto, refreshKey 
 
 export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultarNavegacaoVoltar = false }) {
   const [refreshKey, setRefreshKey] = useState(0);
-  const [mostrarForm, setMostrarForm] = useState(false);
+  const [modalAberto, setModalAberto] = useState(false);
+  const [modo, setModo] = useState("criar");
+  const [editandoId, setEditandoId] = useState(null);
   const [salvando, setSalvando] = useState(false);
-  const [form, setForm] = useState(estadoInicialEquipe);
+  const [form, setForm] = useState({ ...estadoInicialEquipe, id_posto: idPosto });
 
   function fecharModalEquipe() {
     if (salvando) return;
-    setForm(estadoInicialEquipe);
-    setMostrarForm(false);
+    setForm({ ...estadoInicialEquipe, id_posto: idPosto });
+    setEditandoId(null);
+    setModo("criar");
+    setModalAberto(false);
   }
 
   function abrirNovoMembro() {
-    setForm(estadoInicialEquipe);
-    setMostrarForm(true);
+    setModo("criar");
+    setEditandoId(null);
+    setForm({ ...estadoInicialEquipe, id_posto: idPosto, ativo: true });
+    setModalAberto(true);
+  }
+
+  function onEditarMembro(u) {
+    setModo("editar");
+    setEditandoId(u.id);
+    setForm({
+      nome: u.nome || "",
+      email: u.email || "",
+      codigo: u.codigo || "",
+      telefone: u.telefone || "",
+      papel: u.papel || "frentista",
+      id_posto: idPosto,
+      ativo: Boolean(u.ativo),
+      senha: "",
+      confirmar_senha: ""
+    });
+    setModalAberto(true);
   }
 
   async function onSubmitEquipe(event) {
     event.preventDefault();
+    if (form.papel === "frentista" && !String(form.codigo || "").trim()) {
+      toastErro("Informe o código de acesso do frentista.");
+      return;
+    }
+    const minSenha = form.papel === "frentista" ? 2 : 6;
+    const senhaTrim = String(form.senha || "").trim();
+    const confirmarTrim = String(form.confirmar_senha || "").trim();
+
+    if (modo === "criar") {
+      if (senhaTrim.length < minSenha) {
+        toastErro(`Senha deve ter no mínimo ${minSenha} caracteres.`);
+        return;
+      }
+    } else if (senhaTrim || confirmarTrim) {
+      if (senhaTrim.length < minSenha) {
+        toastErro(`Senha deve ter no mínimo ${minSenha} caracteres.`);
+        return;
+      }
+    }
+
     setSalvando(true);
     try {
-      await criarUsuarioEquipe({
-        id_rede: redeId,
-        id_posto: idPosto,
-        nome: form.nome,
-        email: form.papel === "frentista" ? "" : form.email,
-        codigo: form.papel === "frentista" ? form.codigo : "",
-        telefone: form.telefone,
-        senha: form.senha,
-        confirmar_senha: form.confirmar_senha,
-        papel: form.papel
-      });
-      toastSucesso("Usuario da equipe criado com sucesso.");
-      setForm(estadoInicialEquipe);
-      setMostrarForm(false);
+      if (modo === "editar" && editandoId) {
+        const payload = {
+          id: editandoId,
+          id_rede: redeId,
+          id_posto: idPosto,
+          papel: form.papel,
+          nome: form.nome,
+          email: form.email,
+          codigo: form.codigo,
+          telefone: form.telefone,
+          ativo: form.ativo
+        };
+        if (senhaTrim || confirmarTrim) {
+          payload.senha = senhaTrim;
+          payload.confirmar_senha = confirmarTrim;
+        }
+        await editarUsuarioEquipe(payload);
+        toastSucesso("Usuario da equipe atualizado com sucesso.");
+      } else {
+        await criarUsuarioEquipe({
+          id_rede: redeId,
+          id_posto: idPosto,
+          nome: form.nome,
+          email: form.papel === "frentista" ? "" : form.email,
+          codigo: form.papel === "frentista" ? form.codigo : "",
+          telefone: form.telefone,
+          senha: form.senha,
+          confirmar_senha: form.confirmar_senha,
+          papel: form.papel
+        });
+        toastSucesso("Usuario da equipe criado com sucesso.");
+      }
+      setForm({ ...estadoInicialEquipe, id_posto: idPosto });
+      setEditandoId(null);
+      setModo("criar");
+      setModalAberto(false);
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      toastErro(err.message || "Falha ao criar usuario da equipe.");
+      toastErro(
+        err.message ||
+          (modo === "editar" ? "Falha ao atualizar usuario." : "Falha ao criar usuario da equipe.")
+      );
     } finally {
       setSalvando(false);
     }
@@ -646,111 +859,17 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
         </Button>
       </div>
 
-      <Modal
-        open={mostrarForm}
+      <ModalEquipeMembro
+        open={modalAberto}
         onClose={fecharModalEquipe}
-        title="Adicionar membro"
-        description="Cadastre gerente ou frentista vinculado a este posto."
-        size="md"
-        footer={
-          <ModalActions>
-            <Button type="button" variant="outline" onClick={fecharModalEquipe} disabled={salvando}>
-              Cancelar
-            </Button>
-            <Button type="submit" form="form-equipe-membro-modal" variant="primary" disabled={salvando}>
-              {salvando ? "Salvando..." : "Criar usuario"}
-            </Button>
-          </ModalActions>
-        }
-      >
-        <form id="form-equipe-membro-modal" className="form-rede form-rede--equipe" onSubmit={onSubmitEquipe}>
-          <div className="form-rede__grid">
-            <CampoComAjuda
-              rotulo="Perfil"
-              dica="Define as permissões: frentista ou gerente do posto."
-            >
-              <select
-                className="campo__input"
-                value={form.papel}
-                onChange={(e) => setForm((prev) => ({ ...prev, papel: e.target.value }))}
-              >
-                <option value="frentista">Frentista</option>
-                <option value="gerente_posto">Gerente de posto</option>
-              </select>
-            </CampoComAjuda>
-            <CampoComAjuda
-              rotulo="Nome completo"
-              dica="Nome do colaborador exibido no painel e relatórios."
-            >
-              <input
-                className="campo__input"
-                placeholder="Nome completo"
-                value={form.nome}
-                onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
-              />
-            </CampoComAjuda>
-            {form.papel === "frentista" ? (
-              <CampoComAjuda
-                rotulo="Código"
-                dica="Código de acesso do frentista (texto ou números). Único neste posto. Usado no login e na baixa de vouchers."
-              >
-                <input
-                  className="campo__input"
-                  type="text"
-                  placeholder="Código de acesso"
-                  value={form.codigo}
-                  onChange={(e) => setForm((prev) => ({ ...prev, codigo: e.target.value }))}
-                  autoComplete="off"
-                />
-              </CampoComAjuda>
-            ) : (
-              <CampoComAjuda
-                rotulo="Email"
-                dica="Email de acesso ao painel para esse usuário."
-              >
-                <input
-                  className="campo__input"
-                  type="email"
-                  placeholder="Email"
-                  value={form.email}
-                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                />
-              </CampoComAjuda>
-            )}
-            <CampoComAjuda
-              rotulo="Telefone"
-              dica="Contato do colaborador (opcional)."
-            >
-              <input
-                className="campo__input"
-                placeholder="Telefone"
-                value={form.telefone}
-                onChange={(e) => setForm((prev) => ({ ...prev, telefone: e.target.value }))}
-              />
-            </CampoComAjuda>
-            <CampoComAjuda
-              rotulo="Senha"
-              dica="Senha inicial de acesso (mínimo de 6 caracteres)."
-            >
-              <CampoSenhaComOlho
-                placeholder="Senha (min. 6 caracteres)"
-                value={form.senha}
-                onChange={(e) => setForm((prev) => ({ ...prev, senha: e.target.value }))}
-              />
-            </CampoComAjuda>
-            <CampoComAjuda
-              rotulo="Confirmar senha"
-              dica="Repita a senha para evitar erro de digitação."
-            >
-              <CampoSenhaComOlho
-                placeholder="Confirmar senha"
-                value={form.confirmar_senha}
-                onChange={(e) => setForm((prev) => ({ ...prev, confirmar_senha: e.target.value }))}
-              />
-            </CampoComAjuda>
-          </div>
-        </form>
-      </Modal>
+        modo={modo}
+        form={form}
+        setForm={setForm}
+        onSubmit={onSubmitEquipe}
+        salvando={salvando}
+        ocultarPosto
+        formId="form-equipe-membro-modal"
+      />
 
       <ListaUsuariosRedePaginada
         redeId={redeId}
@@ -758,6 +877,7 @@ export function SecaoEquipePosto({ redeId, idPosto, nomePosto, onVoltar, ocultar
         idPosto={idPosto}
         refreshKey={refreshKey}
         permiteEditarEquipe
+        onEditarMembro={onEditarMembro}
       />
     </>
   );
